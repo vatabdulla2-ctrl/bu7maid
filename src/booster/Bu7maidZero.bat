@@ -1,10 +1,10 @@
 @echo off
 :: ============================================================
-::   BU 7MAID ZERO v17.3  -  One-Click Max FPS / Low Delay
+::   BU 7MAID ZERO v17.4  -  One-Click Max FPS / Low Delay
 ::   Progress bar + auto GPU detect + auto restart + full RESTORE
 :: ============================================================
 setlocal EnableExtensions EnableDelayedExpansion
-title BU 7MAID ZERO v17.3
+title BU 7MAID ZERO v17.4
 color 0A
 set "HIDDEN="
 if /i "%~2"=="HIDDEN" set "HIDDEN=1"
@@ -66,7 +66,7 @@ cls
 for /f %%P in ('powershell -NoProfile -Command "(Get-Process).Count"') do set "PROC=%%P"
 echo.
 echo   +===================================================================+
-echo   ^|                  B U   7 M A I D    Z E R O    v17.3               ^|
+echo   ^|                  B U   7 M A I D    Z E R O    v17.4               ^|
 echo   ^|            more FPS  -  less delay  -  fewer processes            ^|
 echo   +===================================================================+
 echo     CPU  !CPUNAME!
@@ -557,7 +557,7 @@ if "%SEC%"=="OFF" (
 reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v SecurityHealth /f >nul 2>&1
 taskkill /f /im SecurityHealthSystray.exe >nul 2>&1
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v "Latency Sensitive" /t REG_SZ /d True /f >nul 2>&1
-:: v17.3 extra tweaks - all reversible, none touch security
+:: v17.4 extra tweaks - all reversible, none touch security
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_FSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_HonorUserFSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_DXGIHonorFSEWindowsCompatible /f >nul 2>&1
