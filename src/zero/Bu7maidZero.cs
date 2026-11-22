@@ -120,6 +120,15 @@ namespace Bu7maidZero
             Thread t = new Thread(delegate () { try { CleanOld(product, curVer); CheckUpdate(product, curVer, host, busy); } catch { } });
             t.IsBackground = true; t.Start();
         }
+        // copies the download link of the newest version, to send to friends
+        public static void Share(string product)
+        {
+            string url = product == "Zero" ? ZeroUrl : BoosterUrl;
+            if (string.IsNullOrEmpty(url)) return;
+            string link = url.Replace("raw.githubusercontent.com", "github.com").Replace("/main/zero.txt", "/raw/main/Zero.exe").Replace("/main/booster.txt", "/raw/main/Booster.exe");
+            try { Clipboard.SetText(link); } catch { }
+            MessageBox.Show("Download link copied:\n\n" + link + "\n\nSend it to your friends. They download the program once, then it updates itself.", "Bu 7maid " + product, MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
         // deletes older Bu 7maid <product> vX.exe and "- BUILD.zip" files (this folder, Desktop, Downloads). Never the running file, never a newer one.
         static void CleanOld(string product, string curVer)
         {
@@ -135,6 +144,7 @@ namespace Bu7maidZero
             foreach (string d in dirs.ToArray())
             {
                 if (string.IsNullOrEmpty(d) || !Directory.Exists(d)) continue;
+                try { string bf = Path.Combine(d, "Bu 7maid " + product + ".bat"); if (File.Exists(bf)) { File.SetAttributes(bf, FileAttributes.Normal); File.Delete(bf); } } catch { }   // old build helper - not needed any more
                 string[] subs; try { subs = Directory.GetDirectories(d, "Bu 7maid " + product + " v*"); } catch { subs = new string[0]; }
                 foreach (string sd in subs)
                 {
@@ -463,7 +473,7 @@ namespace Bu7maidZero
 
     class MainForm : Form
     {
-        internal const string Version = "v17.2";
+        internal const string Version = "v17.3";
         [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int a, ref int v, int s);
 
         string batPath;
@@ -697,6 +707,7 @@ namespace Bu7maidZero
             DB p = NewPage("status");
             statusList = new DB(); statusList.SetBounds(36, 4, 752, 492); statusList.BackColor = UI.Bg; statusList.Paint += PaintStatus; p.Controls.Add(statusList);
             ZBtn r = new ZBtn(); r.Title = "REFRESH"; r.SetBounds(36, 506, 170, 46); r.Click += delegate { RefreshStatus(); }; p.Controls.Add(r);
+            ZBtn shr = new ZBtn(); shr.Title = "SHARE LINK"; shr.SetBounds(216, 506, 170, 46); shr.Click += delegate { Updater.Share("Zero"); }; p.Controls.Add(shr);
         }
         void PaintStatus(object s, PaintEventArgs e)
         {

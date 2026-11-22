@@ -56,7 +56,7 @@ namespace Bu7maidBooster
     class MainForm : Form
     {
         const int W = 980, H = 640;
-        const string Version = "v2.7";
+        const string Version = "v2.8";
 
         [DllImport("user32.dll")] static extern bool ReleaseCapture();
         [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
@@ -754,6 +754,11 @@ namespace Bu7maidBooster
         {
             PageHead(g, "Tools", "Quick cleaners. Each one shows its progress on the BOOST page.");
             string[] ti = { "CLEAN DISK", "CLEAN RAM", "VIRUS SCAN" };
+            float ysh = 148 + 3 * 108;
+            CardBox(g, 104, ysh, 840, 92);
+            Txt(g, "SHARE WITH FRIENDS", Fnt("Segoe UI Semibold", 13f, FontStyle.Bold), T.Txt, 130, ysh + 14, 500, 30, StringAlignment.Near, StringAlignment.Center);
+            Txt(g, "Copies the download link. Your friends get the program and it updates itself.", Fnt("Segoe UI", 9.5f, FontStyle.Regular), T.Muted, 130, ysh + 48, 600, 26, StringAlignment.Near, StringAlignment.Center);
+            Btn(g, "toolShare", "COPY LINK", 760, ysh + 22, 160, 48, 1, false);
             string[] ts = { "Deep clean: temp, caches, old Windows updates, dumps. Takes a few minutes (BOOST already does a fast one).", "Frees unused memory instantly. Nothing else is touched.", "Quick scan with the built-in Microsoft engine. Removes what it finds." };
             string[] id = { "toolClean", "toolRam", "toolScan" };
             for (int i = 0; i < 3; i++)
@@ -867,6 +872,7 @@ namespace Bu7maidBooster
                     StartBoost(); break;
                 case "later": done = false; restartAt = DateTime.MinValue; break;
                 case "report": ShowReport(); break;
+                case "toolShare": Bu7maidZero.Updater.Share("Booster"); break;
                 case "restartNow": restartAt = DateTime.MinValue; RestartPc(); break;
                 case "restore":
                     if (running) break;
