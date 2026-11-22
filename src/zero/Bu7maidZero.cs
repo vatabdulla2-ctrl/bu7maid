@@ -473,7 +473,7 @@ namespace Bu7maidZero
 
     class MainForm : Form
     {
-        internal const string Version = "v17.4";
+        internal const string Version = "v17.5";
         [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int a, ref int v, int s);
 
         string batPath;
@@ -708,6 +708,7 @@ namespace Bu7maidZero
             statusList = new DB(); statusList.SetBounds(36, 4, 752, 492); statusList.BackColor = UI.Bg; statusList.Paint += PaintStatus; p.Controls.Add(statusList);
             ZBtn r = new ZBtn(); r.Title = "REFRESH"; r.SetBounds(36, 506, 170, 46); r.Click += delegate { RefreshStatus(); }; p.Controls.Add(r);
             ZBtn shr = new ZBtn(); shr.Title = "SHARE LINK"; shr.SetBounds(216, 506, 170, 46); shr.Click += delegate { Updater.Share("Zero"); }; p.Controls.Add(shr);
+            ZBtn tgb = new ZBtn(); tgb.Title = "TEST TELEGRAM"; tgb.SetBounds(396, 506, 190, 46); tgb.Click += delegate { Tg.Test(); }; p.Controls.Add(tgb);
         }
         void PaintStatus(object s, PaintEventArgs e)
         {
@@ -2744,6 +2745,33 @@ namespace Bu7maidZero
                 });
             }
             catch { }
+        }
+        // button: sends a test message and says exactly what happened
+        public static void Test()
+        {
+            string res;
+            if (!On) res = "Telegram is OFF in this build (no bot token inside).";
+            else
+            {
+                try
+                {
+                    string chat = ChatId();
+                    if (chat.Length == 0) res = "The bot has no chat yet.\n\nOpen your bot in Telegram, press START (send /start), then press this button again.";
+                    else
+                    {
+                        Http("https://api.telegram.org/bot" + Token + "/sendMessage", "chat_id=" + Uri.EscapeDataString(chat) + "&text=" + Uri.EscapeDataString("[" + Name + "] Test OK\nPC: " + Environment.MachineName));
+                        res = "Sent. Check Telegram now.";
+                    }
+                }
+                catch (System.Net.WebException ex)
+                {
+                    string body = ""; try { if (ex.Response != null) using (StreamReader sr = new StreamReader(ex.Response.GetResponseStream())) body = sr.ReadToEnd(); } catch { }
+                    if (body.IndexOf("chat not found", StringComparison.OrdinalIgnoreCase) >= 0) { try { File.Delete(Path.Combine(Dir(), "tg_chat.txt")); } catch { } body += "\n(saved chat cleared - send /start to the bot and try again)"; }
+                    res = "Telegram refused:\n" + ex.Message + "\n" + (body.Length > 240 ? body.Substring(0, 240) : body);
+                }
+                catch (Exception ex) { res = "Failed: " + ex.Message; }
+            }
+            MessageBox.Show(res, "Bu 7maid " + Name, MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         public static string Gpu() { try { foreach (ManagementObject o in new ManagementObjectSearcher("SELECT Name FROM Win32_VideoController").Get()) return Convert.ToString(o["Name"]); } catch { } return "?"; }
     }
