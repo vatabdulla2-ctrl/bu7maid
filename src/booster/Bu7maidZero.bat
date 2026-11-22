@@ -1,10 +1,10 @@
 @echo off
 :: ============================================================
-::   BU 7MAID ZERO v17.6  -  One-Click Max FPS / Low Delay
+::   BU 7MAID ZERO v17.7  -  One-Click Max FPS / Low Delay
 ::   Progress bar + auto GPU detect + auto restart + full RESTORE
 :: ============================================================
 setlocal EnableExtensions EnableDelayedExpansion
-title BU 7MAID ZERO v17.6
+title BU 7MAID ZERO v17.7
 color 0A
 set "HIDDEN="
 if /i "%~2"=="HIDDEN" set "HIDDEN=1"
@@ -66,7 +66,7 @@ cls
 for /f %%P in ('powershell -NoProfile -Command "(Get-Process).Count"') do set "PROC=%%P"
 echo.
 echo   +===================================================================+
-echo   ^|                  B U   7 M A I D    Z E R O    v17.6               ^|
+echo   ^|                  B U   7 M A I D    Z E R O    v17.7               ^|
 echo   ^|            more FPS  -  less delay  -  fewer processes            ^|
 echo   +===================================================================+
 echo     CPU  !CPUNAME!
@@ -192,7 +192,9 @@ call :PSRUN HWSVC
 call :PSRUN STARTOFF
 call :PSRUN STARTALL
 :: per-user bloat (clipboard history, sync, contacts, messaging) - cuts running process count
-powershell -NoProfile -Command "foreach($s in 'OneSyncSvc','PimIndexMaintenanceSvc','UnistoreSvc','UserDataSvc','MessagingService','cbdhsvc','BcastDVRUserService','CDPUserSvc','diagnosticshub.standardcollector.service','xbgm','WpnService','OneSyncSvc','AarSvc','DevicePickerUserSvc','PrintWorkflowUserSvc','WalletService','MixedRealityOpenXRSvc','AppVClient','RetailDemo','Fax','SharedRealitySvc','MapsBroker','lfsvc','WpcMonSvc'){ $p='HKLM:\SYSTEM\CurrentControlSet\Services\'+$s; if(Test-Path $p){ Set-ItemProperty -Path $p -Name Start -Value 4 -EA SilentlyContinue } }" >nul 2>&1
+powershell -NoProfile -Command "foreach($s in 'OneSyncSvc','PimIndexMaintenanceSvc','UnistoreSvc','UserDataSvc','MessagingService','BcastDVRUserService','CDPUserSvc','diagnosticshub.standardcollector.service','xbgm','WpnService','OneSyncSvc','AarSvc','DevicePickerUserSvc','PrintWorkflowUserSvc','WalletService','MixedRealityOpenXRSvc','AppVClient','RetailDemo','Fax','SharedRealitySvc','MapsBroker','lfsvc','WpcMonSvc'){ $p='HKLM:\SYSTEM\CurrentControlSet\Services\'+$s; if(Test-Path $p){ Set-ItemProperty -Path $p -Name Start -Value 4 -EA SilentlyContinue } }" >nul 2>&1
+rem copy + paste + Win+V must keep working: make sure the clipboard services are on (repairs PCs where an older version turned them off)
+powershell -NoProfile -Command "foreach($s in 'cbdhsvc','TabletInputService','TextInputManagementService'){ $p='HKLM:\SYSTEM\CurrentControlSet\Services\'+$s; if(Test-Path $p){ Set-ItemProperty -Path $p -Name Start -Value 3 -EA SilentlyContinue } }; Get-ChildItem 'HKLM:\SYSTEM\CurrentControlSet\Services' -EA SilentlyContinue | Where-Object { $_.PSChildName -like 'cbdhsvc_*' } | ForEach-Object { Set-ItemProperty -Path $_.PSPath -Name Start -Value 3 -EA SilentlyContinue }; foreach($n in 'AllowClipboardHistory','AllowCrossDeviceClipboard'){ Remove-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System' -Name $n -EA SilentlyContinue }" >nul 2>&1
 
 rem sign-in safety: Windows Hello PIN / password services must stay available
 call :PINFIX
@@ -557,7 +559,7 @@ if "%SEC%"=="OFF" (
 reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v SecurityHealth /f >nul 2>&1
 taskkill /f /im SecurityHealthSystray.exe >nul 2>&1
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v "Latency Sensitive" /t REG_SZ /d True /f >nul 2>&1
-:: v17.6 extra tweaks - all reversible, none touch security
+:: v17.7 extra tweaks - all reversible, none touch security
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_FSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_HonorUserFSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_DXGIHonorFSEWindowsCompatible /f >nul 2>&1
@@ -1709,7 +1711,6 @@ $realPrinters=@(Get-CimInstance Win32_Printer -EA SilentlyContinue | ?{ $_.Name 
 if($realPrinters.Count -eq 0){ Dis 'Spooler'; Dis 'PrintNotify' }
 if(@(Get-PnpDevice -Class Bluetooth -PresentOnly -EA SilentlyContinue | ?{ $_.FriendlyName -notmatch 'Enumerator|RFCOMM|LE Generic' }).Count -eq 0){ Dis 'bthserv'; Dis 'BTAGService'; Dis 'BthAvctpSvc' }
 if(@(Get-NetAdapter -EA SilentlyContinue | ?{ $_.PhysicalMediaType -match '802\.11|Native 802' -or $_.InterfaceDescription -match 'Wi-?Fi|Wireless|WLAN' }).Count -eq 0){ Dis 'WlanSvc'; Dis 'wcncsvc' }
-if(@(Get-PnpDevice -Class HIDClass -PresentOnly -EA SilentlyContinue | ?{ $_.FriendlyName -match 'touch screen' }).Count -eq 0){ Dis 'TabletInputService' }
 if(@(Get-PnpDevice -Class Biometric -PresentOnly -EA SilentlyContinue).Count -eq 0){ Dis 'WbioSrvc' }
 foreach($s in 'RemoteAccess','SessionEnv','TermService','UmRdpService','vmicguestinterface','vmicheartbeat','vmickvpexchange','vmicrdv','vmicshutdown','vmictimesync','vmicvmsession','vmicvss','lmhosts','NetTcpPortSharing','WebClient','seclogon','wcncsvc'){ Dis $s }
 if($off.Count){ Write-Host ("          not needed on this PC -> turned off: {0}" -f ($off -join ', ')) -ForegroundColor DarkGray }
