@@ -1008,6 +1008,7 @@ namespace Bu7maidZero
         bool autoAfterPending;
         // returns false when the user cancelled the whole BOOST
         // ---------- hooks used by Bu 7maid Booster (the new interface drives these) ----------
+        public void BQuiet() { try { anim.Stop(); procTimer.Stop(); } catch { } }   // Booster only uses this form as an engine - no timers
         public void BInit() { IntPtr h = Handle; try { batPath = ExtractEngine(); } catch { } }
         public void BStatusRefresh() { RefreshStatus(); }
         public List<SItem> BStatusItems { get { return statusItems; } }

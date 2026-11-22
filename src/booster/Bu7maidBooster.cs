@@ -56,7 +56,7 @@ namespace Bu7maidBooster
     class MainForm : Form
     {
         const int W = 980, H = 640;
-        const string Version = "v2.9";
+        const string Version = "v2.10";
 
         [DllImport("user32.dll")] static extern bool ReleaseCapture();
         [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
@@ -198,8 +198,19 @@ namespace Bu7maidBooster
             }
             catch { }
             Bu7maidZero.MemTrim.Start();
-            Shown += delegate { Bu7maidZero.Updater.Start("Booster", Version, this, delegate { return running; }); };
-            try { Bu7maidZero.Tg.Name = "Booster " + Version; z = new Bu7maidZero.MainForm(); z.BInit(); Bu7maidZero.Tg.Hello(); } catch { z = null; }
+            Shown += delegate
+            {
+                Bu7maidZero.Updater.Start("Booster", Version, this, delegate { return running; });
+                // the helper engine form is built after the window is already on screen, so opening never freezes
+                System.Windows.Forms.Timer st = new System.Windows.Forms.Timer(); st.Interval = 350;
+                st.Tick += delegate
+                {
+                    st.Stop(); st.Dispose();
+                    try { Bu7maidZero.Tg.Name = "Booster " + Version; z = new Bu7maidZero.MainForm(); z.BInit(); z.BQuiet(); Bu7maidZero.Tg.Hello(); ocSummary = z.BOcSummary(); } catch { z = null; }
+                };
+                st.Start();
+            };
+            StartMonitor();
             for (int i = 0; i < px.Length; i++) { px[i] = (float)(rnd.NextDouble() * W); py[i] = (float)(rnd.NextDouble() * H); ps[i] = 6f + (float)rnd.NextDouble() * 18f; pz[i] = 1.2f + (float)rnd.NextDouble() * 2.2f; }
             stepText = "";
             tick = new System.Windows.Forms.Timer();
@@ -269,25 +280,41 @@ namespace Bu7maidBooster
             if (t - lastSample >= 1.0) { lastSample = t; Sample(); }
             if (WindowState != FormWindowState.Minimized) Invalidate();
         }
+        // the slow parts (performance counter, process list) run on a background thread - the window never waits for them
+        void StartMonitor()
+        {
+            Thread th = new Thread(delegate ()
+            {
+                while (true)
+                {
+                    try
+                    {
+                        if (!cpuTried)
+                        {
+                            cpuTried = true;
+                            try { cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total"); cpuCounter.NextValue(); } catch { cpuCounter = null; }
+                        }
+                        if (cpuCounter != null) { try { cpuNow = cpuCounter.NextValue(); } catch { } }
+                        if (cpuNow < 0) cpuNow = 0; if (cpuNow > 100) cpuNow = 100;
+                        MEMSTAT ms = new MEMSTAT(); ms.dwLength = (uint)Marshal.SizeOf(typeof(MEMSTAT));
+                        if (GlobalMemoryStatusEx(ref ms))
+                        {
+                            ramNow = ms.dwMemoryLoad; ramTotalGb = ms.ullTotalPhys / 1073741824.0; ramUsedGb = (ms.ullTotalPhys - ms.ullAvailPhys) / 1073741824.0;
+                        }
+                        Process[] pl = Process.GetProcesses(); procCount = pl.Length; foreach (Process pp in pl) pp.Dispose();
+                    }
+                    catch { }
+                    Thread.Sleep(1500);
+                }
+            });
+            th.IsBackground = true; th.Priority = ThreadPriority.BelowNormal; th.Start();
+        }
         void Sample()
         {
             try
             {
-                if (!cpuTried)
-                {
-                    cpuTried = true;
-                    try { cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total"); cpuCounter.NextValue(); } catch { cpuCounter = null; }
-                }
-                if (cpuCounter != null) { try { cpuNow = cpuCounter.NextValue(); } catch { } }
-                if (cpuNow < 0) cpuNow = 0; if (cpuNow > 100) cpuNow = 100;
                 for (int i = 0; i < cpuHist.Length - 1; i++) cpuHist[i] = cpuHist[i + 1];
                 cpuHist[cpuHist.Length - 1] = cpuNow;
-                MEMSTAT ms = new MEMSTAT(); ms.dwLength = (uint)Marshal.SizeOf(typeof(MEMSTAT));
-                if (GlobalMemoryStatusEx(ref ms))
-                {
-                    ramNow = ms.dwMemoryLoad; ramTotalGb = ms.ullTotalPhys / 1073741824.0; ramUsedGb = (ms.ullTotalPhys - ms.ullAvailPhys) / 1073741824.0;
-                }
-                procCount = Process.GetProcesses().Length;
                 if (z != null && page == 2) ocSummary = z.BOcSummary();
             }
             catch { }
