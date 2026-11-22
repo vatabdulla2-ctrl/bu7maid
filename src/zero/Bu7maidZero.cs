@@ -126,8 +126,8 @@ namespace Bu7maidZero
             string url = product == "Zero" ? ZeroUrl : BoosterUrl;
             if (string.IsNullOrEmpty(url)) return;
             string link = url.Replace("raw.githubusercontent.com", "github.com").Replace("/main/zero.txt", "/raw/main/Zero.exe").Replace("/main/booster.txt", "/raw/main/Booster.exe");
-            try { Clipboard.SetText(link); } catch { }
-            MessageBox.Show("Download link copied:\n\n" + link + "\n\nSend it to your friends. They download the program once, then it updates itself.", "Bu 7maid " + product, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            bool ok = false; try { Clipboard.SetDataObject(link, true, 10, 150); ok = true; } catch { }
+            MessageBox.Show((ok ? "Download link copied:\n\n" : "Could not reach the clipboard. Press Ctrl+C now to copy this message:\n\n") + link + "\n\nSend it to your friends. They download the program once, then it updates itself.", "Bu 7maid " + product, MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         // deletes older Bu 7maid <product> vX.exe and "- BUILD.zip" files (this folder, Desktop, Downloads). Never the running file, never a newer one.
         static void CleanOld(string product, string curVer)
@@ -473,7 +473,7 @@ namespace Bu7maidZero
 
     class MainForm : Form
     {
-        internal const string Version = "v17.5";
+        internal const string Version = "v17.6";
         [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int a, ref int v, int s);
 
         string batPath;

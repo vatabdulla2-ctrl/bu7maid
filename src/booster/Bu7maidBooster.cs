@@ -56,7 +56,7 @@ namespace Bu7maidBooster
     class MainForm : Form
     {
         const int W = 980, H = 640;
-        const string Version = "v2.11";
+        const string Version = "v2.12";
 
         [DllImport("user32.dll")] static extern bool ReleaseCapture();
         [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
@@ -1022,6 +1022,32 @@ namespace Bu7maidBooster
             }
         }
         readonly List<string> games = new List<string>();
+        public static bool CopyText(string s)
+        {
+            try { Clipboard.SetDataObject(s, true, 10, 150); return true; } catch { return false; }
+        }
+        string MakeReportText()
+        {
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            if (lastSteps != null && lastSteps.Count > 0)
+            {
+                sb.AppendLine("Bu 7maid Booster " + Version + " - " + lastName + "  (" + ((int)lastSecs / 60) + ":" + ((int)lastSecs % 60).ToString("00") + ")");
+                foreach (StepRec s in lastSteps)
+                {
+                    sb.AppendLine("- " + s.T + " (" + s.Secs.ToString("0.0") + " s)");
+                    foreach (string d in s.Do) sb.AppendLine("    * " + d);
+                }
+                if (lastGames != null && lastGames.Count > 0) { sb.AppendLine("GAMES"); foreach (string gm in lastGames) sb.AppendLine("  " + gm.Replace("|", "  |  ")); }
+                if (lastErrs != null && lastErrs.Count > 0) { sb.AppendLine("PROBLEMS"); foreach (string em in lastErrs) sb.AppendLine("  " + em); }
+            }
+            else foreach (string l in logs) sb.AppendLine(l);
+            return sb.ToString();
+        }
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (keyData == (Keys.Control | Keys.C)) { string t = MakeReportText(); if (t.Length > 0) { CopyText(t); return true; } }
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
         void ShowReport()
         {
             if (lastSteps == null || lastSteps.Count == 0) { ShowGames(); return; }
@@ -1030,7 +1056,7 @@ namespace Bu7maidBooster
             {
                 List<string[]> rows = new List<string[]>();
                 foreach (StepRec s in lastSteps) { List<string> d = new List<string>(s.Do); rows.Add(new string[] { s.T, string.Join("\n", d.ToArray()), s.Secs.ToString("0.0") }); }
-                using (ReportForm rf = new ReportForm(lastName, rows, lastGames ?? new List<string>(), lastErrs ?? new List<string>(), lastErrCount, lastSecs)) rf.ShowDialog(this);
+                using (ReportForm rf = new ReportForm(lastName, rows, lastGames ?? new List<string>(), lastErrs ?? new List<string>(), lastErrCount, lastSecs, MakeReportText())) rf.ShowDialog(this);
             }
             catch { }
         }
@@ -1050,10 +1076,11 @@ namespace Bu7maidBooster
     class ReportForm : Form
     {
         readonly string title; readonly List<string[]> rows; readonly List<string> games, errs; readonly int errCount; readonly double secs;
-        int scroll = 0, contentH = 0; Rectangle closeR; Point dragFrom; bool drag;
-        int changes = 0, tuned = 0;
-        public ReportForm(string ttl, List<string[]> r, List<string> g, List<string> e, int ec, double s)
+        int scroll = 0, contentH = 0; string copyText = ""; Rectangle closeR, copyR; Point dragFrom; bool drag;
+        int changes = 0, tuned = 0; DateTime copied = DateTime.MinValue;
+        public ReportForm(string ttl, List<string[]> r, List<string> g, List<string> e, int ec, double s, string txt)
         {
+            copyText = txt;
             title = ttl; rows = r; games = g; errs = e; errCount = ec; secs = s;
             foreach (string[] x in rows) if (x[1].Length > 0) changes += x[1].Split('\n').Length;
             foreach (string gm in games) { string[] q = gm.Split('|'); if (q.Length > 1 && q[1] == "tuned") tuned++; }
@@ -1062,10 +1089,10 @@ namespace Bu7maidBooster
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
             try { using (GraphicsPath gp = RR(new RectangleF(0, 0, 760, 640), 16f)) Region = new Region(gp); } catch { }
             MouseWheel += delegate (object o, MouseEventArgs ev) { scroll -= ev.Delta / 2; Clamp(); Invalidate(); };
-            MouseDown += delegate (object o, MouseEventArgs ev) { if (closeR.Contains(ev.Location)) { Close(); return; } if (ev.Y < 110) { drag = true; dragFrom = ev.Location; } };
-            MouseMove += delegate (object o, MouseEventArgs ev) { if (drag) Location = new Point(Location.X + ev.X - dragFrom.X, Location.Y + ev.Y - dragFrom.Y); Cursor = closeR.Contains(ev.Location) ? Cursors.Hand : Cursors.Default; };
+            MouseDown += delegate (object o, MouseEventArgs ev) { if (closeR.Contains(ev.Location)) { Close(); return; } if (copyR.Contains(ev.Location)) { MainForm.CopyText(copyText); copied = DateTime.Now; Invalidate(); return; } if (ev.Y < 110) { drag = true; dragFrom = ev.Location; } };
+            MouseMove += delegate (object o, MouseEventArgs ev) { if (drag) Location = new Point(Location.X + ev.X - dragFrom.X, Location.Y + ev.Y - dragFrom.Y); Cursor = (closeR.Contains(ev.Location) || copyR.Contains(ev.Location)) ? Cursors.Hand : Cursors.Default; };
             MouseUp += delegate { drag = false; };
-            KeyDown += delegate (object o, KeyEventArgs ev) { if (ev.KeyCode == Keys.Escape || ev.KeyCode == Keys.Enter) Close(); else if (ev.KeyCode == Keys.Down) { scroll += 40; Clamp(); Invalidate(); } else if (ev.KeyCode == Keys.Up) { scroll -= 40; Clamp(); Invalidate(); } };
+            KeyDown += delegate (object o, KeyEventArgs ev) { if (ev.Control && ev.KeyCode == Keys.C) { MainForm.CopyText(copyText); copied = DateTime.Now; Invalidate(); } else if (ev.KeyCode == Keys.Escape || ev.KeyCode == Keys.Enter) Close(); else if (ev.KeyCode == Keys.Down) { scroll += 40; Clamp(); Invalidate(); } else if (ev.KeyCode == Keys.Up) { scroll -= 40; Clamp(); Invalidate(); } };
             KeyPreview = true;
         }
         static GraphicsPath RR(RectangleF r, float d)
@@ -1150,7 +1177,9 @@ namespace Bu7maidBooster
             }
             // footer
             using (SolidBrush b = new SolidBrush(Color.FromArgb(230, 10, 12, 26))) g.FillRectangle(b, 0, 570, 760, 70);
-            closeR = new Rectangle(300, 584, 160, 42);
+            copyR = new Rectangle(230, 584, 160, 42); closeR = new Rectangle(400, 584, 160, 42);
+            using (GraphicsPath gp = RR(copyR, 21f)) { using (SolidBrush b = new SolidBrush(Color.FromArgb(40, 255, 255, 255))) g.FillPath(b, gp); using (Pen p = new Pen(T.Line, 1.2f)) g.DrawPath(p, gp); }
+            using (Font fc = new Font("Segoe UI Semibold", 10f, FontStyle.Bold)) T2(g, (DateTime.Now - copied).TotalSeconds < 2 ? "COPIED" : "COPY", fc, T.Txt, copyR.X, copyR.Y, copyR.Width, copyR.Height, StringAlignment.Center);
             using (GraphicsPath gp = RR(closeR, 21f)) using (LinearGradientBrush b = new LinearGradientBrush(closeR, T.A1, T.A2, 0f)) g.FillPath(b, gp);
             using (Font fc = new Font("Segoe UI Semibold", 10f, FontStyle.Bold)) T2(g, "DONE", fc, Color.White, closeR.X, closeR.Y, closeR.Width, closeR.Height, StringAlignment.Center);
         }
