@@ -17,7 +17,7 @@ jobs:
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
         run: |
           $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
-          $tok = $env:TG_TOKEN
+          $tok = ($env:TG_TOKEN -replace '[^0-9A-Za-z_:\-]', '')
           if ([string]::IsNullOrEmpty($tok)) { $tok = "__TG_TOKEN__" }
           foreach ($f in 'src\zero\Bu7maidZero.cs','src\booster\Bu7maidZeroCore.cs') {
             $t = [IO.File]::ReadAllText($f)
