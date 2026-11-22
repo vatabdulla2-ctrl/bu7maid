@@ -56,7 +56,7 @@ namespace Bu7maidBooster
     class MainForm : Form
     {
         const int W = 980, H = 640;
-        const string Version = "v2.13";
+        const string Version = "v2.14";
 
         [DllImport("user32.dll")] static extern bool ReleaseCapture();
         [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
@@ -201,6 +201,7 @@ namespace Bu7maidBooster
             Shown += delegate
             {
                 Bu7maidZero.Updater.Start("Booster", Version, this, delegate { return running; });
+                ReadSpecsAsync();
                 // the helper engine form is built after the window is already on screen, so opening never freezes
                 System.Windows.Forms.Timer st = new System.Windows.Forms.Timer(); st.Interval = 350;
                 st.Tick += delegate
@@ -799,11 +800,146 @@ namespace Bu7maidBooster
             }
         }
 
+        // ---------------- your hardware (motherboard, BIOS, CPU, RAM, GPU, drives, network) ----------------
+        class SpecRow { public string L, V; public int S; }
+        List<SpecRow> specs = null; bool specsBusy = false; int monSub = 0;
+        static List<System.Management.ManagementBaseObject> WmiGet(string scope, string q)
+        {
+            List<System.Management.ManagementBaseObject> l = new List<System.Management.ManagementBaseObject>();
+            try
+            {
+                using (System.Management.ManagementObjectSearcher s = scope == null ? new System.Management.ManagementObjectSearcher(q) : new System.Management.ManagementObjectSearcher(scope, q))
+                    foreach (System.Management.ManagementBaseObject o in s.Get()) l.Add(o);
+            }
+            catch { }
+            return l;
+        }
+        static string Wv(System.Management.ManagementBaseObject o, string p)
+        {
+            try { object v = o[p]; return v == null ? "" : Convert.ToString(v).Trim(); } catch { return ""; }
+        }
+        static long Wl(System.Management.ManagementBaseObject o, string p)
+        {
+            long r; return long.TryParse(Wv(o, p), out r) ? r : 0;
+        }
+        void ReadSpecsAsync()
+        {
+            if (specsBusy) return; specsBusy = true;
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                List<SpecRow> r = new List<SpecRow>();
+                try { ReadSpecs(r); } catch { }
+                specs = r; specsBusy = false;
+            });
+        }
+        static void AddSpec(List<SpecRow> r, string l, string v, int s) { SpecRow x = new SpecRow(); x.L = l; x.V = v; x.S = s; r.Add(x); }
+        static void ReadSpecs(List<SpecRow> r)
+        {
+            foreach (System.Management.ManagementBaseObject o in WmiGet(null, "SELECT Manufacturer, Product FROM Win32_BaseBoard"))
+            { AddSpec(r, "Motherboard", (Wv(o, "Manufacturer") + " " + Wv(o, "Product")).Trim(), 0); break; }
+            foreach (System.Management.ManagementBaseObject o in WmiGet(null, "SELECT SMBIOSBIOSVersion, ReleaseDate FROM Win32_BIOS"))
+            {
+                string d = Wv(o, "ReleaseDate"), txt = Wv(o, "SMBIOSBIOSVersion"); int flag = 0;
+                if (d.Length >= 8)
+                {
+                    int y, m, dd;
+                    if (int.TryParse(d.Substring(0, 4), out y) && int.TryParse(d.Substring(4, 2), out m) && int.TryParse(d.Substring(6, 2), out dd))
+                    {
+                        txt += "   (" + y + "-" + m.ToString("00") + "-" + dd.ToString("00") + ")";
+                        if (DateTime.Now.Year - y >= 2) { txt += "  -  old BIOS, check the board maker's site for an update"; flag = 1; }
+                    }
+                }
+                AddSpec(r, "BIOS", txt, flag); break;
+            }
+            foreach (System.Management.ManagementBaseObject o in WmiGet(null, "SELECT Name, NumberOfCores, NumberOfLogicalProcessors, MaxClockSpeed FROM Win32_Processor"))
+            { AddSpec(r, "CPU", Wv(o, "Name") + "   " + Wv(o, "NumberOfCores") + " cores / " + Wv(o, "NumberOfLogicalProcessors") + " threads   " + Wl(o, "MaxClockSpeed") + " MHz", 0); break; }
+            // RAM
+            long total = 0; int mods = 0; long spd = 0, conf = 0; string rtype = "";
+            foreach (System.Management.ManagementBaseObject o in WmiGet(null, "SELECT Capacity, Speed, ConfiguredClockSpeed, SMBIOSMemoryType FROM Win32_PhysicalMemory"))
+            {
+                total += Wl(o, "Capacity"); mods++;
+                long s1 = Wl(o, "Speed"), c1 = Wl(o, "ConfiguredClockSpeed");
+                if (s1 > spd) spd = s1; if (c1 > conf) conf = c1;
+                long mt = Wl(o, "SMBIOSMemoryType"); rtype = mt == 34 ? "DDR5" : (mt == 26 ? "DDR4" : (mt == 24 ? "DDR3" : rtype));
+            }
+            int slots = 0;
+            foreach (System.Management.ManagementBaseObject o in WmiGet(null, "SELECT MemoryDevices FROM Win32_PhysicalMemoryArray")) { slots += (int)Wl(o, "MemoryDevices"); }
+            if (mods > 0)
+            {
+                long run = conf > 0 ? conf : spd; int rf = 0;
+                string rt = (total / 1073741824L) + " GB " + rtype + "   " + mods + " stick" + (mods > 1 ? "s" : "") + "   running at " + run + " MHz";
+                if (spd > run + 200) { rt += "  -  kit is rated " + spd + ": turn ON XMP / EXPO in the BIOS"; rf = 1; }
+                else if (rtype == "DDR5" && run > 0 && run <= 4800) { rt += "  -  default speed: if your kit is rated higher, turn ON EXPO / XMP in the BIOS"; rf = 1; }
+                else if (rtype == "DDR4" && run > 0 && run <= 2666) { rt += "  -  default speed: if your kit is rated higher, turn ON XMP in the BIOS"; rf = 1; }
+                AddSpec(r, "RAM", rt, rf);
+                if (mods == 1 && slots >= 2) AddSpec(r, "RAM channels", "only 1 stick = single channel (slower). Two matching sticks give more FPS.", 1);
+                else if (mods >= 2) AddSpec(r, "RAM channels", "dual channel (good)", 0);
+            }
+            foreach (System.Management.ManagementBaseObject o in WmiGet(null, "SELECT Name, DriverVersion, CurrentHorizontalResolution, CurrentVerticalResolution, CurrentRefreshRate FROM Win32_VideoController"))
+            {
+                string nm = Wv(o, "Name"); if (nm.Length == 0 || nm.IndexOf("Basic", StringComparison.OrdinalIgnoreCase) >= 0 && nm.IndexOf("Microsoft", StringComparison.OrdinalIgnoreCase) >= 0) continue;
+                string res = Wl(o, "CurrentHorizontalResolution") > 0 ? "   " + Wl(o, "CurrentHorizontalResolution") + "x" + Wl(o, "CurrentVerticalResolution") + " @ " + Wl(o, "CurrentRefreshRate") + " Hz" : "";
+                AddSpec(r, "Graphics", nm + "   driver " + Wv(o, "DriverVersion") + res, 0);
+            }
+            bool gotDisk = false;
+            foreach (System.Management.ManagementBaseObject o in WmiGet(@"root\microsoft\windows\storage", "SELECT FriendlyName, MediaType, BusType, Size FROM MSFT_PhysicalDisk"))
+            {
+                long mt = Wl(o, "MediaType"), bt = Wl(o, "BusType"); string kind = bt == 17 ? "NVMe SSD" : (mt == 4 ? "SSD" : (mt == 3 ? "HDD" : "disk"));
+                AddSpec(r, "Drive", Wv(o, "FriendlyName") + "   " + (Wl(o, "Size") / 1000000000L) + " GB   " + kind, kind == "HDD" ? 1 : 0);
+                if (kind == "HDD") r[r.Count - 1].V += "  -  games load much faster from an SSD";
+                gotDisk = true;
+            }
+            if (!gotDisk) foreach (System.Management.ManagementBaseObject o in WmiGet(null, "SELECT Model, Size FROM Win32_DiskDrive"))
+                AddSpec(r, "Drive", Wv(o, "Model") + "   " + (Wl(o, "Size") / 1000000000L) + " GB", 0);
+            string sd = Environment.GetEnvironmentVariable("SystemDrive"); if (string.IsNullOrEmpty(sd)) sd = "C:";
+            foreach (System.Management.ManagementBaseObject o in WmiGet(null, "SELECT Size, FreeSpace FROM Win32_LogicalDisk WHERE DeviceID='" + sd + "'"))
+            {
+                long sz = Wl(o, "Size"), fr = Wl(o, "FreeSpace"); if (sz <= 0) break;
+                int pc = (int)(fr * 100 / sz); string t = sd + " has " + (fr / 1073741824L) + " GB free (" + pc + "%)";
+                if (pc < 15) t += "  -  low space slows Windows and game installs";
+                AddSpec(r, "System drive", t, pc < 15 ? 1 : 0); break;
+            }
+            foreach (System.Management.ManagementBaseObject o in WmiGet(null, "SELECT Name, Speed FROM Win32_NetworkAdapter WHERE PhysicalAdapter=TRUE AND NetEnabled=TRUE"))
+            {
+                string nm = Wv(o, "Name"); long sp = Wl(o, "Speed") / 1000000L; bool wifi = nm.IndexOf("Wi-Fi", StringComparison.OrdinalIgnoreCase) >= 0 || nm.IndexOf("Wireless", StringComparison.OrdinalIgnoreCase) >= 0 || nm.IndexOf("WLAN", StringComparison.OrdinalIgnoreCase) >= 0;
+                string t = nm + "   " + sp + " Mbps"; int fl = 0;
+                if (wifi) { t += "  -  Wi-Fi: a cable gives lower ping"; fl = 1; }
+                else if (sp > 0 && sp <= 100) { t += "  -  only 100 Mbps: check the cable / port"; fl = 1; }
+                AddSpec(r, "Network", t, fl);
+            }
+            foreach (System.Management.ManagementBaseObject o in WmiGet(null, "SELECT Caption, BuildNumber FROM Win32_OperatingSystem"))
+            { AddSpec(r, "Windows", Wv(o, "Caption") + "   build " + Wv(o, "BuildNumber"), 0); break; }
+        }
+        void DrawSpecs(Graphics g, double t)
+        {
+            Txt(g, "YOUR PC", Fnt("Segoe UI Semibold", 8.5f, FontStyle.Bold), T.Muted, 104, 74, 300, 20, StringAlignment.Near, StringAlignment.Center);
+            CardBox(g, 104, 106, 840, 500);
+            List<SpecRow> sp = specs;
+            if (sp == null || sp.Count == 0) { Txt(g, specsBusy || sp == null ? "reading your hardware..." : "could not read the hardware info", Fnt("Segoe UI", 11f, FontStyle.Regular), T.Muted, 104, 106, 840, 500, StringAlignment.Center, StringAlignment.Center); return; }
+            int tips = 0; foreach (SpecRow s in sp) if (s.S == 1) tips++;
+            Txt(g, tips == 0 ? "Everything looks good." : tips + " thing(s) worth checking (orange).", Fnt("Segoe UI Semibold", 10f, FontStyle.Bold), tips == 0 ? T.Good : T.Warn, 126, 114, 600, 26, StringAlignment.Near, StringAlignment.Center);
+            for (int i = 0; i < sp.Count && i < 15; i++)
+            {
+                float y = 146 + i * 30; SpecRow s = sp[i]; Color dc = s.S == 1 ? T.Warn : T.Good;
+                using (SolidBrush b = new SolidBrush(dc)) g.FillEllipse(b, 126, y + 11, 8, 8);
+                Txt(g, s.L, Fnt("Segoe UI Semibold", 9f, FontStyle.Bold), T.Muted, 146, y, 130, 30, StringAlignment.Near, StringAlignment.Center);
+                Txt(g, s.V, Fnt("Segoe UI", 9f, FontStyle.Regular), s.S == 1 ? T.Warn : T.Txt, 280, y, 650, 30, StringAlignment.Near, StringAlignment.Center);
+            }
+        }
+        string SpecsText()
+        {
+            System.Text.StringBuilder sb = new System.Text.StringBuilder(); List<SpecRow> sp = specs;
+            if (sp != null) foreach (SpecRow s in sp) sb.AppendLine(s.L + ": " + s.V);
+            return sb.ToString();
+        }
         void DrawMonitorPage(Graphics g, double t)
         {
+            Btn(g, "monLive", "LIVE", 700, 62, 110, 32, monSub == 0 ? 0 : 1, false);
+            Btn(g, "monSpecs", "YOUR PC", 824, 62, 120, 32, monSub == 1 ? 0 : 1, false);
+            if (monSub == 1) { DrawSpecs(g, t); return; }
             Txt(g, "LIVE SYSTEM", Fnt("Segoe UI Semibold", 8.5f, FontStyle.Bold), T.Muted, 104, 74, 300, 20, StringAlignment.Near, StringAlignment.Center);
             TimeSpan up = TimeSpan.FromMilliseconds((double)(uint)Environment.TickCount);
-            Txt(g, "uptime " + (int)up.TotalHours + " h " + up.Minutes + " min", Fnt("Segoe UI", 9f, FontStyle.Regular), T.Muted, 640, 74, 304, 20, StringAlignment.Far, StringAlignment.Center);
+            Txt(g, "uptime " + (int)up.TotalHours + " h " + up.Minutes + " min", Fnt("Segoe UI", 9f, FontStyle.Regular), T.Muted, 400, 74, 280, 20, StringAlignment.Far, StringAlignment.Center);
             float cw = 270f, gap = 20f, x0 = 104f;
             for (int i = 0; i < 3; i++) CardBox(g, x0 + i * (cw + gap), 100, cw, 220);
             Ring(g, x0 + cw / 2, 205, 66, cpuNow / 100f, T.A2, T.A1, ((int)cpuNow) + "%", "CPU");
@@ -901,6 +1037,8 @@ namespace Bu7maidBooster
                 case "later": done = false; restartAt = DateTime.MinValue; break;
                 case "report": ShowReport(); break;
                 case "toolTg": Bu7maidZero.Tg.Test(); break;
+                case "monLive": monSub = 0; break;
+                case "monSpecs": monSub = 1; if (specs == null || specs.Count == 0) ReadSpecsAsync(); break;
                 case "toolShare": Bu7maidZero.Updater.Share("Booster"); break;
                 case "restartNow": restartAt = DateTime.MinValue; RestartPc(); break;
                 case "restore":
@@ -1045,7 +1183,7 @@ namespace Bu7maidBooster
         }
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
-            if (keyData == (Keys.Control | Keys.C)) { string t = MakeReportText(); if (t.Length > 0) { CopyText(t); return true; } }
+            if (keyData == (Keys.Control | Keys.C)) { string t = (page == 4 && monSub == 1) ? SpecsText() : MakeReportText(); if (t.Length > 0) { CopyText(t); return true; } }
             return base.ProcessCmdKey(ref msg, keyData);
         }
         void ShowReport()
