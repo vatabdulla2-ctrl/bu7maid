@@ -1,0 +1,53 @@
+name: build
+on:
+  push:
+    branches: [main]
+    paths: ['src/**', '.github/workflows/build.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build both programs
+        shell: pwsh
+        env:
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+        run: |
+          $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+          $tok = $env:TG_TOKEN
+          if ([string]::IsNullOrEmpty($tok)) { $tok = "__TG_TOKEN__" }
+          foreach ($f in 'src\zero\Bu7maidZero.cs','src\booster\Bu7maidZeroCore.cs') {
+            $t = [IO.File]::ReadAllText($f)
+            $t = $t.Replace('"__TG_TOKEN__"', '"' + $tok + '"')
+            [IO.File]::WriteAllText($f, $t, (New-Object Text.UTF8Encoding($true)))
+          }
+          Push-Location src\zero
+          & $csc /nologo /target:winexe /platform:anycpu /optimize+ /out:..\..\Zero.exe /win32icon:bu7maid.ico /win32manifest:app.manifest /resource:Bu7maidZero.bat,Bu7maidZero.bat /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Management.dll Bu7maidZero.cs
+          if ($LASTEXITCODE -ne 0) { throw "Zero build failed" }
+          Pop-Location
+          Push-Location src\booster
+          & $csc /nologo /target:winexe /platform:anycpu /optimize+ /out:..\..\Booster.exe /win32icon:bu7maid.ico /win32manifest:app.manifest /resource:Bu7maidZero.bat,Bu7maidZero.bat /main:Bu7maidBooster.Program /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Management.dll Bu7maidBooster.cs Bu7maidZeroCore.cs
+          if ($LASTEXITCODE -ne 0) { throw "Booster build failed" }
+          Pop-Location
+          git checkout -- src
+      - name: Write version files
+        shell: pwsh
+        run: |
+          $zv = [regex]::Match([IO.File]::ReadAllText('src\zero\Bu7maidZero.cs'), 'internal const string Version = "(v[0-9.]+)"').Groups[1].Value
+          $bv = [regex]::Match([IO.File]::ReadAllText('src\booster\Bu7maidBooster.cs'), 'const string Version = "(v[0-9.]+)"').Groups[1].Value
+          if (-not $zv -or -not $bv) { throw "version not found" }
+          $zh = (Get-FileHash Zero.exe -Algorithm SHA256).Hash.ToLower()
+          $bh = (Get-FileHash Booster.exe -Algorithm SHA256).Hash.ToLower()
+          [IO.File]::WriteAllText('zero.txt', "$zv`n$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/raw/main/Zero.exe`n$zh`n")
+          [IO.File]::WriteAllText('booster.txt', "$bv`n$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/raw/main/Booster.exe`n$bh`n")
+      - name: Publish
+        shell: pwsh
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add Zero.exe Booster.exe zero.txt booster.txt
+          git commit -m "Build $(Get-Date -Format s)" ; if ($LASTEXITCODE -ne 0) { exit 0 }
+          git push
