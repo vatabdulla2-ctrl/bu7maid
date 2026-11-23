@@ -1,10 +1,10 @@
 @echo off
 :: ============================================================
-::   BU 7MAID ZERO v17.15  -  One-Click Max FPS / Low Delay
+::   BU 7MAID ZERO v17.16  -  One-Click Max FPS / Low Delay
 ::   Progress bar + auto GPU detect + auto restart + full RESTORE
 :: ============================================================
 setlocal EnableExtensions EnableDelayedExpansion
-title BU 7MAID ZERO v17.15
+title BU 7MAID ZERO v17.16
 color 0A
 set "HIDDEN="
 if /i "%~2"=="HIDDEN" set "HIDDEN=1"
@@ -67,7 +67,7 @@ cls
 for /f %%P in ('powershell -NoProfile -Command "(Get-Process).Count"') do set "PROC=%%P"
 echo.
 echo   +===================================================================+
-echo   ^|                  B U   7 M A I D    Z E R O    v17.15               ^|
+echo   ^|                  B U   7 M A I D    Z E R O    v17.16               ^|
 echo   ^|            more FPS  -  less delay  -  fewer processes            ^|
 echo   +===================================================================+
 echo     CPU  !CPUNAME!
@@ -499,7 +499,9 @@ for /l %%i in (1,1,!FILL!) do set "BAR=!BAR!#"
 for /l %%i in (!FILL!,1,19) do set "BAR=!BAR!."
 if defined HIDDEN (if !PCT! GTR 96 set "PCT=96")
 if defined HIDDEN echo @@PCT=!PCT!
-if defined HIDDEN echo @@MSG=%~1
+set "SMSG=%~1"
+if defined SHOWPCT set "SMSG=%~1 - !PCT!%%"
+if defined HIDDEN echo @@MSG=!SMSG!
 if defined HIDDEN exit /b
 echo !G!  [!STEP!/!TOTAL!] [!BAR!] !PCT!%%   %~1
 exit /b
@@ -575,7 +577,7 @@ if "%SEC%"=="OFF" (
 reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v SecurityHealth /f >nul 2>&1
 taskkill /f /im SecurityHealthSystray.exe >nul 2>&1
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v "Latency Sensitive" /t REG_SZ /d True /f >nul 2>&1
-:: v17.15 extra tweaks - all reversible, none touch security
+:: v17.16 extra tweaks - all reversible, none touch security
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_FSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_HonorUserFSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_DXGIHonorFSEWindowsCompatible /f >nul 2>&1
@@ -727,8 +729,9 @@ exit /b
 :: ============================================================
 :FIXWIN
 cls
-set "TOTAL=7"
+set "TOTAL=8"
 set "STEP=0"
+set "SHOWPCT=1"
 echo.
 echo   FIX WINDOWS - repairs system files and finds why the PC restarts / crashes
 echo.
@@ -749,8 +752,9 @@ if "!DR!"=="1" (
     if defined HIDDEN echo @@DO=Windows image is healthy
 )
 call :STEP "Repairing system files (SFC) - the longest part"
-sfc /scannow > "%BK%\sfc.txt" 2>&1
-powershell -NoProfile -Command "$t=[IO.File]::ReadAllText('%BK%\sfc.txt',[Text.Encoding]::Unicode); if($t -match 'did not find any integrity'){exit 10}elseif($t -match 'successfully repaired'){exit 11}elseif($t -match 'unable to fix'){exit 12}else{exit 13}" >nul 2>&1
+set /a SFCBASE=STEP*100/TOTAL
+set /a SFCSPAN=100/TOTAL-1
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$t=[IO.File]::ReadAllText('%SELF%'); $m='#'+'SFCRUN#'; $i=$t.IndexOf($m)+$m.Length; $j=$t.IndexOf('#'+'END#',$i); iex $t.Substring($i,$j-$i)"
 set "SR=!errorlevel!"
 if defined HIDDEN (
     if "!SR!"=="10" echo @@DO=All system files are fine
@@ -808,6 +812,19 @@ if exist "%ProgramData%\Bu7maidZero\ram_top.txt" for /f "usebackq delims=" %%T i
 if defined RB if defined RA if defined HIDDEN echo @@DO=RAM in use: !RB! percent before, !RA! percent now
 set "RB=" & set "RA="
 if defined HIDDEN echo @@DO=RAM keeper installed - checks every 3 minutes and keeps RAM low, never touches games
+call :STEP "Scanning for viruses and removing them"
+set "MP=%ProgramData%\Microsoft\Windows Defender\Platform"
+set "MPCMD="
+for /f "delims=" %%E in ('dir /b /ad /o-n "%MP%" 2^>nul') do if not defined MPCMD set "MPCMD=%MP%\%%E\MpCmdRun.exe"
+set "VR=99"
+if exist "!MPCMD!" (
+    "!MPCMD!" -SignatureUpdate >nul 2>&1
+    "!MPCMD!" -Scan -ScanType 1 >nul 2>&1
+    set "VR=!errorlevel!"
+)
+if "!VR!"=="0" (if defined HIDDEN echo @@DO=No viruses found)
+if "!VR!"=="2" (if defined HIDDEN echo @@DO=Threats were found and removed - run VIRUS SCAN in Tools for a deeper check)
+if "!VR!"=="99" (if defined HIDDEN echo @@DO=Windows antivirus engine not available - scan skipped)
 call :STEP "Repairing broken Windows parts"
 set "MSIMODE=USBFIX"
 call :PSRUN MSI
@@ -1364,6 +1381,21 @@ try{
 $o=$o | %{ ($_ -replace '[()&|<>"%^]','') }
 [IO.File]::WriteAllLines($out,[string[]]$o)
 #END#
+#SFCRUN#
+$o=Join-Path $env:BK 'sfc.txt'; Remove-Item $o -EA SilentlyContinue
+$p=Start-Process -FilePath "$env:SystemRoot\System32\sfc.exe" -ArgumentList '/scannow' -RedirectStandardOutput $o -WindowStyle Hidden -PassThru
+$base=[int]$env:SFCBASE; $span=[int]$env:SFCSPAN; $last=-1
+while(-not $p.HasExited){
+  Start-Sleep -Seconds 2
+  try{
+    $fs=[IO.File]::Open($o,'Open','Read','ReadWrite'); $sr=New-Object IO.StreamReader($fs,[Text.Encoding]::Unicode); $t=$sr.ReadToEnd(); $sr.Close(); $fs.Close()
+    $m=[regex]::Matches($t,'(\d{1,3})%'); if($m.Count -gt 0){ $n=[int]$m[$m.Count-1].Groups[1].Value; if($n -ne $last -and $n -le 100){ $last=$n; Write-Host ('@@PCT=' + ($base + [int]($span*$n/100))) } }
+  }catch{}
+}
+$t=[IO.File]::ReadAllText($o,[Text.Encoding]::Unicode)
+if($t -match 'did not find any integrity'){ exit 10 } elseif($t -match 'successfully repaired'){ exit 11 } elseif($t -match 'unable to fix'){ exit 12 } else { exit 13 }
+#END#
+
 #MSI#
 $bk=Join-Path $env:BK 'msi_backup.csv'
 if($env:MSIMODE -eq 'RESTORE'){

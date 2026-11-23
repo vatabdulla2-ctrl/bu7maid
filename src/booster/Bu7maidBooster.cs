@@ -56,7 +56,7 @@ namespace Bu7maidBooster
     class MainForm : Form
     {
         const int W = 980, H = 640;
-        const string Version = "v2.22";
+        const string Version = "v2.23";
 
         [DllImport("user32.dll")] static extern bool ReleaseCapture();
         [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
@@ -138,6 +138,7 @@ namespace Bu7maidBooster
             if (t.StartsWith("Scanning your system drive")) return new string[] { "Online check of the file system, no restart needed" };
             if (t.StartsWith("Undoing old tweaks")) return new string[] { "Removes forced timer and interrupt tweaks and small input queues", "Resets network settings that can slow or break the internet" };
             if (t.StartsWith("Lowering RAM")) return new string[] { "Frees background RAM and the standby cache right now", "Installs the RAM keeper so usage stays low (not during games)" };
+            if (t.StartsWith("Scanning for viruses")) return new string[] { "Quick scan with the built-in Microsoft engine", "Removes any threat it finds automatically" };
             if (t.StartsWith("Repairing broken Windows")) return new string[] { "Fixes the WMI database and turns on any core service that was left disabled" };
             if (t.StartsWith("Backup")) return new string[] { "Saved your original services + settings (for RESTORE)", "Created a Windows restore point (first run only)" };
             if (t.StartsWith("Health")) return new string[] { "Checks recent crashes, damaged system files, broken services and drivers", "Repairs what it can automatically", "If the PC is unstable: skips risky tweaks (MSI, timer, security-off, extra service cuts)" };
