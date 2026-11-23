@@ -1,3 +1,3 @@
-v2.20
+v2.21
 https://github.com/vatabdulla2-ctrl/bu7maid/raw/main/Booster.exe
-8b178d56e4c868ba81c0f51beb65e7590156658cdce50fd5fbc8418d31da3690
+8baab5f65d822c452c9019a50c50ece719911580cbd11287f51c42e2b76af336
