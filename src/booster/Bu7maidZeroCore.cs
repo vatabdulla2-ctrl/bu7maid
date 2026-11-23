@@ -472,7 +472,7 @@ namespace Bu7maidZero
 
     class MainForm : Form
     {
-        internal const string Version = "v17.13";
+        internal const string Version = "v17.14";
         [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int a, ref int v, int s);
 
         string batPath;
@@ -764,7 +764,7 @@ namespace Bu7maidZero
                 L.Add(new SItem("Better colors (vibrance)", Run("schtasks.exe", "/Query /TN \"Bu7maid Colors\"", 8000).Contains("Bu7maid Colors") ? 1 : 2, "set"));
                 try { foreach (ManagementObject o in Wmi(null, "SELECT ConfiguredClockSpeed, Speed FROM Win32_PhysicalMemory")) { long cf = ToL(o["ConfiguredClockSpeed"]), rd = ToL(o["Speed"]); L.Add(new SItem("RAM speed " + cf + "/" + rd, cf >= rd ? 1 : 3, cf >= rd ? "FULL" : "XMP OFF")); break; } } catch { }
                 try { foreach (ManagementObject o in Wmi(null, "SELECT Name,CurrentRefreshRate,MaxRefreshRate FROM Win32_VideoController")) { string n = Str(o["Name"]); if (!(n.Contains("NVIDIA") || n.Contains("Radeon") || n.Contains("Arc"))) continue; long cu = ToL(o["CurrentRefreshRate"]), mx = ToL(o["MaxRefreshRate"]); if (cu > 0) L.Add(new SItem("Screen " + cu + " Hz", mx <= cu ? 1 : 3, mx <= cu ? "MAX" : "max " + mx)); break; } } catch { }
-                try { foreach (ManagementObject o in Wmi(null, "SELECT TotalVisibleMemorySize,FreePhysicalMemory FROM Win32_OperatingSystem")) { double tt = ToL(o["TotalVisibleMemorySize"]) / 1048576.0, fr = ToL(o["FreePhysicalMemory"]) / 1048576.0; L.Add(new SItem("RAM in use", 2, (tt - fr).ToString("0.0") + " / " + tt.ToString("0") + " GB")); break; } } catch { }
+                try { foreach (ManagementObject o in Wmi(null, "SELECT TotalVisibleMemorySize,FreePhysicalMemory FROM Win32_OperatingSystem")) { double tt = ToL(o["TotalVisibleMemorySize"]) / 1048576.0, fr = ToL(o["FreePhysicalMemory"]) / 1048576.0; try { foreach (ManagementObject pm in Wmi(null, "SELECT AvailableBytes FROM Win32_PerfFormattedData_PerfOS_Memory")) { double av = ToL(pm["AvailableBytes"]) / 1073741824.0; if (av > 0) fr = av; break; } } catch { } L.Add(new SItem("RAM in use", 2, (tt - fr).ToString("0.0") + " / " + tt.ToString("0") + " GB")); break; } } catch { }
                 L.Add(new SItem("Processes running", 2, Process.GetProcesses().Length.ToString()));
                 int good = 0, tot = 0; foreach (SItem it in L) if (it.S == 0 || it.S == 1) { tot++; if (it.S == 1) good++; }
                 string sum = good + " of " + tot + " tweaks active" + (good == tot && tot > 0 ? "  -  all good" : "");
