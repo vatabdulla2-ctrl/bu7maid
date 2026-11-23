@@ -1,10 +1,10 @@
 @echo off
 :: ============================================================
-::   BU 7MAID ZERO v17.9  -  One-Click Max FPS / Low Delay
+::   BU 7MAID ZERO v17.10  -  One-Click Max FPS / Low Delay
 ::   Progress bar + auto GPU detect + auto restart + full RESTORE
 :: ============================================================
 setlocal EnableExtensions EnableDelayedExpansion
-title BU 7MAID ZERO v17.9
+title BU 7MAID ZERO v17.10
 color 0A
 set "HIDDEN="
 if /i "%~2"=="HIDDEN" set "HIDDEN=1"
@@ -67,7 +67,7 @@ cls
 for /f %%P in ('powershell -NoProfile -Command "(Get-Process).Count"') do set "PROC=%%P"
 echo.
 echo   +===================================================================+
-echo   ^|                  B U   7 M A I D    Z E R O    v17.9               ^|
+echo   ^|                  B U   7 M A I D    Z E R O    v17.10               ^|
 echo   ^|            more FPS  -  less delay  -  fewer processes            ^|
 echo   +===================================================================+
 echo     CPU  !CPUNAME!
@@ -160,6 +160,10 @@ if exist "%BK%\health.txt" (
     )
 )
 if "!SAFE!"=="1" set "SEC=ON"
+set "MSIMODE=USBFIX"
+call :PSRUN MSI
+reg delete "HKLM\SYSTEM\CurrentControlSet\Services\kbdclass\Parameters" /v KeyboardDataQueueSize /f >nul 2>&1
+reg delete "HKLM\SYSTEM\CurrentControlSet\Services\mouclass\Parameters" /v MouseDataQueueSize /f >nul 2>&1
 
 call :STEP "Ultimate power plan, no core parking, boost aggressive"
 powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 99999999-9999-9999-9999-999999999999 >nul 2>&1
@@ -316,8 +320,8 @@ reg add "HKCU\Control Panel\Desktop" /v AutoEndTasks /t REG_SZ /d 1 /f >nul 2>&1
 reg add "HKCU\Control Panel\Desktop" /v HungAppTimeout /t REG_SZ /d 1000 /f >nul 2>&1
 reg add "HKLM\SYSTEM\CurrentControlSet\Control" /v WaitToKillServiceTimeout /t REG_SZ /d 2000 /f >nul 2>&1
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize" /v StartupDelayInMSec /t REG_DWORD /d 0 /f >nul 2>&1
-reg add "HKLM\SYSTEM\CurrentControlSet\Services\mouclass\Parameters" /v MouseDataQueueSize /t REG_DWORD /d 20 /f >nul 2>&1
-reg add "HKLM\SYSTEM\CurrentControlSet\Services\kbdclass\Parameters" /v KeyboardDataQueueSize /t REG_DWORD /d 20 /f >nul 2>&1
+reg delete "HKLM\SYSTEM\CurrentControlSet\Services\mouclass\Parameters" /v MouseDataQueueSize /f >nul 2>&1
+reg delete "HKLM\SYSTEM\CurrentControlSet\Services\kbdclass\Parameters" /v KeyboardDataQueueSize /f >nul 2>&1
 reg add "HKLM\SYSTEM\CurrentControlSet\Services\Ntfs" /v NtfsDisableLastAccessUpdate /t REG_DWORD /d 1 /f >nul 2>&1
 reg add "HKCU\Control Panel\Accessibility\StickyKeys" /v Flags /t REG_SZ /d 506 /f >nul 2>&1
 reg add "HKCU\Control Panel\Accessibility\Keyboard Response" /v Flags /t REG_SZ /d 122 /f >nul 2>&1
@@ -571,7 +575,7 @@ if "%SEC%"=="OFF" (
 reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v SecurityHealth /f >nul 2>&1
 taskkill /f /im SecurityHealthSystray.exe >nul 2>&1
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v "Latency Sensitive" /t REG_SZ /d True /f >nul 2>&1
-:: v17.9 extra tweaks - all reversible, none touch security
+:: v17.10 extra tweaks - all reversible, none touch security
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_FSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_HonorUserFSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_DXGIHonorFSEWindowsCompatible /f >nul 2>&1
@@ -765,6 +769,10 @@ if "!CR!"=="1" (
     if defined HIDDEN echo @@DO=No drive errors
 )
 call :STEP "Repairing broken Windows parts"
+set "MSIMODE=USBFIX"
+call :PSRUN MSI
+reg delete "HKLM\SYSTEM\CurrentControlSet\Services\kbdclass\Parameters" /v KeyboardDataQueueSize /f >nul 2>&1
+reg delete "HKLM\SYSTEM\CurrentControlSet\Services\mouclass\Parameters" /v MouseDataQueueSize /f >nul 2>&1
 powershell -NoProfile -Command "$w=(& winmgmt /verifyrepository 2>&1) -join ' '; if($w -match 'inconsistent'){ & winmgmt /salvagerepository | Out-Null; exit 20 }; foreach($n in 'RpcSs','DcomLaunch','EventLog','PlugPlay','Power','Winmgmt','ProfSvc','Themes','Audiosrv','cbdhsvc','TabletInputService','TextInputManagementService','BFE','mpssvc','CryptSvc','TrustedInstaller'){ $k='HKLM:\SYSTEM\CurrentControlSet\Services\'+$n; if(Test-Path $k){ $v=(Get-ItemProperty $k -Name Start -EA SilentlyContinue).Start; if($v -eq 4){ Set-ItemProperty $k -Name Start -Value 3 -EA SilentlyContinue; $n | Out-File -Append '%BK%\fixsvc.txt' } } }; exit 0" >nul 2>&1
 if "!errorlevel!"=="20" (if defined HIDDEN echo @@DO=Windows WMI database was broken - repaired)
 if exist "%BK%\fixsvc.txt" (if defined HIDDEN echo @@DO=Re-enabled Windows services that were disabled) & del /f /q "%BK%\fixsvc.txt" >nul 2>&1
@@ -1322,7 +1330,13 @@ if($env:MSIMODE -eq 'RESTORE'){
   if(Test-Path $bk){ Import-Csv $bk | %{ $p=$_.Path; if(Test-Path $p){ if($_.Orig -eq 'NONE'){ Remove-ItemProperty -Path $p -Name MSISupported -EA SilentlyContinue } else { Set-ItemProperty -Path $p -Name MSISupported -Value ([int]$_.Orig) -EA SilentlyContinue } } } }
 } else {
   $rows=@(); if(Test-Path $bk){ $rows=@(Import-Csv $bk) }
-  Get-PnpDevice -PresentOnly -EA SilentlyContinue | ?{ $_.InstanceId -like 'PCI\*' -and ($_.Class -eq 'Display' -or $_.Class -eq 'Net' -or $_.Class -eq 'USB') } | %{
+  # USB controllers must never stay on forced MSI (can kill keyboard/mouse): put them back
+  $usbp=@(Get-PnpDevice -Class USB -EA SilentlyContinue | ?{ $_.InstanceId -like 'PCI\*' } | %{ 'HKLM:\SYSTEM\CurrentControlSet\Enum\'+$_.InstanceId+'\Device Parameters\Interrupt Management\MessageSignaledInterruptProperties' })
+  $keep=@()
+  foreach($r in $rows){ if($usbp -contains $r.Path){ if(Test-Path $r.Path){ if($r.Orig -eq 'NONE'){ Remove-ItemProperty -Path $r.Path -Name MSISupported -EA SilentlyContinue } else { Set-ItemProperty -Path $r.Path -Name MSISupported -Value ([int]$r.Orig) -EA SilentlyContinue } } } else { $keep+=$r } }
+  $rows=$keep
+  if($env:MSIMODE -eq 'USBFIX'){ if($rows.Count -gt 0){ $rows | Export-Csv -NoTypeInformation -Path $bk }; exit 0 }
+  Get-PnpDevice -PresentOnly -EA SilentlyContinue | ?{ $_.InstanceId -like 'PCI\*' -and ($_.Class -eq 'Display' -or $_.Class -eq 'Net') } | %{
     $p='HKLM:\SYSTEM\CurrentControlSet\Enum\'+$_.InstanceId+'\Device Parameters\Interrupt Management\MessageSignaledInterruptProperties'
     if(-not ($rows | ?{ $_.Path -eq $p })){ $o='NONE'; if(Test-Path $p){ $v=(Get-ItemProperty $p -Name MSISupported -EA SilentlyContinue).MSISupported; if($v -ne $null){ $o=[string]$v } }; $rows+=[pscustomobject]@{Path=$p;Orig=$o} }
     New-Item -Path $p -Force -EA SilentlyContinue | Out-Null; New-ItemProperty -Path $p -Name MSISupported -Value 1 -PropertyType DWord -Force -EA SilentlyContinue | Out-Null }
