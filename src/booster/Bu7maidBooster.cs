@@ -56,7 +56,7 @@ namespace Bu7maidBooster
     class MainForm : Form
     {
         const int W = 980, H = 640;
-        const string Version = "v2.26";
+        const string Version = "v2.27";
 
         [DllImport("user32.dll")] static extern bool ReleaseCapture();
         [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
@@ -178,7 +178,7 @@ namespace Bu7maidBooster
         // monitor
         PerformanceCounter cpuCounter;
         bool cpuTried = false;
-        List<KeyValuePair<string, double>> topMem = new List<KeyValuePair<string, double>>(); double nonProcGb = 0; float cpuNow = 0f, ramNow = 0f; int procCount = 0; double ramTotalGb = 0, ramUsedGb = 0;
+        List<KeyValuePair<string, double>> topMem = new List<KeyValuePair<string, double>>(); double nonProcGb = 0; string svcInside = ""; DateTime svcLast = DateTime.MinValue; float cpuNow = 0f, ramNow = 0f; int procCount = 0; double ramTotalGb = 0, ramUsedGb = 0;
         float[] cpuHist = new float[60];
         double lastSample = -10;
 
@@ -312,16 +312,30 @@ namespace Bu7maidBooster
                             ramNow = ms.dwMemoryLoad; ramTotalGb = ms.ullTotalPhys / 1073741824.0; ramUsedGb = (ms.ullTotalPhys - ms.ullAvailPhys) / 1073741824.0;
                         }
                         Process[] pl = Process.GetProcesses(); procCount = pl.Length;
-                        Dictionary<string, double> byName = new Dictionary<string, double>(); double sumGb = 0;
+                        Dictionary<string, double> byName = new Dictionary<string, double>(); double sumGb = 0, bigSvcGb = 0; int bigSvcPid = 0;
                         foreach (Process pp in pl)
                         {
-                            try { double gb = pp.WorkingSet64 / 1073741824.0; string nm = pp.ProcessName; double cur; byName.TryGetValue(nm, out cur); byName[nm] = cur + gb; sumGb += gb; } catch { }
+                            try { double gb = pp.WorkingSet64 / 1073741824.0; string nm = pp.ProcessName; double cur; byName.TryGetValue(nm, out cur); byName[nm] = cur + gb; sumGb += gb; if (nm == "svchost" && gb > bigSvcGb) { bigSvcGb = gb; bigSvcPid = pp.Id; } } catch { }
                             pp.Dispose();
                         }
                         List<KeyValuePair<string, double>> tl = new List<KeyValuePair<string, double>>(byName);
                         tl.Sort(delegate (KeyValuePair<string, double> a, KeyValuePair<string, double> b) { return b.Value.CompareTo(a.Value); });
                         if (tl.Count > 6) tl.RemoveRange(6, tl.Count - 6);
                         topMem = tl; nonProcGb = Math.Max(0, ramUsedGb - sumGb);
+                        if (bigSvcGb < 1.0) svcInside = "";
+                        else if ((DateTime.Now - svcLast).TotalSeconds > 8)
+                        {
+                            svcLast = DateTime.Now;
+                            try
+                            {
+                                List<string> names = new List<string>();
+                                using (System.Management.ManagementObjectSearcher so = new System.Management.ManagementObjectSearcher("SELECT Name FROM Win32_Service WHERE ProcessId=" + bigSvcPid))
+                                    foreach (System.Management.ManagementBaseObject mo in so.Get()) { names.Add(Convert.ToString(mo["Name"])); mo.Dispose(); }
+                                names.Sort();
+                                svcInside = bigSvcGb.ToString("0.0") + " GB svchost runs: " + string.Join(", ", names.ToArray());
+                            }
+                            catch { }
+                        }
                     }
                     catch { }
                     Thread.Sleep(1500);
@@ -986,7 +1000,9 @@ namespace Bu7maidBooster
                 using (Brush bb = new SolidBrush(Alpha(T.A2, 150))) g.FillRectangle(bb, 735, ry + 7, (float)(120 * kv.Value / mx), 8);
                 Txt(g, kv.Value.ToString("0.0") + " GB", Fnt("Segoe UI Semibold", 9f, FontStyle.Bold), T.Txt, 860, ry, 70, 22, StringAlignment.Far, StringAlignment.Center);
             }
-            if (nonProcGb > 2)
+            if (svcInside.Length > 0)
+                Txt(g, svcInside, Fnt("Segoe UI", 7.5f, FontStyle.Regular), T.Warn, 580, 526, 350, 28, StringAlignment.Near, StringAlignment.Near);
+            else if (nonProcGb > 2)
             {
                 Txt(g, "Not a program (driver / Windows)", Fnt("Segoe UI", 9f, FontStyle.Regular), T.Warn, 580, 530, 250, 20, StringAlignment.Near, StringAlignment.Center);
                 Txt(g, nonProcGb.ToString("0.0") + " GB", Fnt("Segoe UI Semibold", 9f, FontStyle.Bold), T.Warn, 860, 530, 70, 20, StringAlignment.Far, StringAlignment.Center);
