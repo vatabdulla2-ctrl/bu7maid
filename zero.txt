@@ -1,3 +1,3 @@
-v17.7
+v17.8
 https://github.com/vatabdulla2-ctrl/bu7maid/raw/main/Zero.exe
-a1d76d0172d82abebd52a3e8f25e710d38dc2eba2041c298c00dba292ba0aeee
+f59b2519f31830f2516f3ee3e2bd3bdf144ae9eeae3ea9893c32406820b77b4a
