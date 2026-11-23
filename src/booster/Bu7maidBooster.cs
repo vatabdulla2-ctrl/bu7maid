@@ -56,7 +56,7 @@ namespace Bu7maidBooster
     class MainForm : Form
     {
         const int W = 980, H = 640;
-        const string Version = "v2.28";
+        const string Version = "v2.29";
 
         [DllImport("user32.dll")] static extern bool ReleaseCapture();
         [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
@@ -120,7 +120,7 @@ namespace Bu7maidBooster
         string ocSummary = "";
         Bu7maidZero.BenchRes resB, resA;
         void LoadRes() { try { resB = Bu7maidZero.BenchRes.Load("before"); resA = Bu7maidZero.BenchRes.Load("after"); } catch { } }
-        class StepRec { public string T; public List<string> Do = new List<string>(); public DateTime Start; public double Secs; public bool Done; }
+        class StepRec { public string T; public List<string> Res = new List<string>(); public List<string> Do = new List<string>(); public DateTime Start; public double Secs; public bool Done; }
         readonly List<StepRec> steps = new List<StepRec>();
         List<StepRec> lastSteps = null; List<string> lastGames = null, lastErrs = null; double lastSecs = 0; int lastErrCount = 0; string lastName = "";
         DateTime runStart = DateTime.Now;
@@ -1192,7 +1192,7 @@ namespace Bu7maidBooster
                         else if (d.StartsWith("@@ERRS=")) { int v2; if (int.TryParse(d.Substring(7), out v2)) errs = v2; }
                         else if (d.StartsWith("@@ERR=")) { string em = d.Substring(6); BeginInvoke(new Action(delegate { if (errList.Count < 6) errList.Add(em); })); }
                         else if (d.StartsWith("@@MSG=")) { string m = d.Substring(6); BeginInvoke(new Action(delegate { stepText = m; AddLog(m); NewStep(m); })); }
-                        else if (d.StartsWith("@@DO=")) { string dm = d.Substring(5); BeginInvoke(new Action(delegate { if (steps.Count > 0 && steps[steps.Count - 1].Do.Count < 8) steps[steps.Count - 1].Do.Add(dm); })); }
+                        else if (d.StartsWith("@@DO=")) { string dm = d.Substring(5); BeginInvoke(new Action(delegate { if (steps.Count > 0) { StepRec lr = steps[steps.Count - 1]; if (lr.Res.Count < 20) lr.Res.Add(dm); if (lr.Do.Count < 8) lr.Do.Add(dm); } })); }
                         else if (!d.StartsWith("@@") && d.Length < 200) { string m2 = d; BeginInvoke(new Action(delegate { AddLog(m2); })); }
                     }
                     catch { }
@@ -1210,7 +1210,7 @@ namespace Bu7maidBooster
                             t2.Interval = 700;
                             t2.Tick += delegate { t2.Stop(); t2.Dispose(); running = false; done = true; stepText = "";
                                 if (steps.Count > 0) { StepRec ls = steps[steps.Count - 1]; ls.Done = true; ls.Secs = (DateTime.Now - ls.Start).TotalSeconds; }
-                                lastSteps = new List<StepRec>(steps); lastSecs = (DateTime.Now - runStart).TotalSeconds; lastErrCount = errs > 0 ? errs : 0; lastErrs = new List<string>(errList); lastName = runTitle; try { Bu7maidZero.Tg.Send("[" + runTitle + "] finished in " + ((int)lastSecs / 60) + ":" + ((int)lastSecs % 60).ToString("00") + (errs > 0 ? " with " + errs + " small problem(s)" : " - no problems") + "\nSteps: " + steps.Count); } catch { }
+                                lastSteps = new List<StepRec>(steps); lastSecs = (DateTime.Now - runStart).TotalSeconds; lastErrCount = errs > 0 ? errs : 0; lastErrs = new List<string>(errList); lastName = runTitle; try { Bu7maidZero.Tg.Send(FixReport() ?? ("[" + runTitle + "] finished in " + ((int)lastSecs / 60) + ":" + ((int)lastSecs % 60).ToString("00") + (errs > 0 ? " with " + errs + " small problem(s)" : " - no problems") + "\nSteps: " + steps.Count)); } catch { }
                                 lock (games) lastGames = new List<string>(games);
                                 if (doneKind != 1) Bu7maidZero.GpuOc.ReapplyAfterTask(); LoadRes(); if (doneKind == 0) ShowReport(); else ShowGames(); if (doneKind == 0 && z != null && z.BAfterPending) { try { z.BScheduleAfter(); } catch { } }
                                 if (doneKind == 0 && measure) restartAt = DateTime.Now.AddSeconds(15); };
@@ -1269,6 +1269,25 @@ namespace Bu7maidBooster
             List<string> gl; lock (games) { gl = new List<string>(games); games.Clear(); }
             if (gl.Count == 0 || (doneKind != 0 && doneKind != 2)) return;
             try { using (Bu7maidZero.GamesListForm gf = new Bu7maidZero.GamesListForm(gl)) gf.ShowDialog(this); } catch { }
+        }
+        // Telegram summary for FIX WINDOWS: every problem found and what was done about it
+        string FixReport()
+        {
+            try
+            {
+                if (runTitle == null || !runTitle.StartsWith("FIXING")) return null;
+                System.Text.StringBuilder sb = new System.Text.StringBuilder();
+                sb.Append("[FIX WINDOWS] finished in " + ((int)lastSecs / 60) + ":" + ((int)lastSecs % 60).ToString("00") + (errs > 0 ? " with " + errs + " small problem(s)" : " - no problems") + "\n");
+                foreach (StepRec st in steps)
+                {
+                    string title = System.Text.RegularExpressions.Regex.Replace(st.T ?? "", @" - \d+%$", "");
+                    sb.Append("\n" + title + "\n");
+                    foreach (string r in st.Res) sb.Append("  - " + r + "\n");
+                }
+                string o = sb.ToString();
+                return o.Length > 3500 ? o.Substring(0, 3500) : o;
+            }
+            catch { return null; }
         }
         void AddLog(string s)
         {
