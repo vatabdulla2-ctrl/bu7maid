@@ -56,7 +56,7 @@ namespace Bu7maidBooster
     class MainForm : Form
     {
         const int W = 980, H = 640;
-        const string Version = "v2.23";
+        const string Version = "v2.24";
 
         [DllImport("user32.dll")] static extern bool ReleaseCapture();
         [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
@@ -150,7 +150,7 @@ namespace Bu7maidBooster
             if (t.StartsWith("Game Mode")) return new string[] { "Game Mode ON, Game Bar + Game DVR OFF", "Hardware GPU scheduling ON", "Games get High GPU + CPU + disk priority", "Fullscreen optimization fix for common games" };
             if (t.StartsWith("Lower input")) return new string[] { "Scheduler favors the game you are playing", "Mouse acceleration OFF, keyboard delay minimum", "Smaller mouse + keyboard buffers", "Faster app close, no startup delay" };
             if (t.StartsWith("Network")) return new string[] { "Lower ping: faster TCP replies on every adapter", "Fast DNS: 1.1.1.1 + 8.8.8.8", "Download speed tuning (auto-tuning, RSS)", "Adapter power saving OFF, DNS cache flushed" };
-            if (t.StartsWith("Light visuals")) return new string[] { "Animations + transparency OFF", "Memory kept in RAM, prefetch OFF", "RAM keeper: every 3 min it frees background RAM + cache when usage is high, never touches games", "NVMe + USB power saving OFF", "NTFS last-access OFF, TRIM ON, MSI interrupts" };
+            if (t.StartsWith("Light visuals")) return new string[] { "Animations + transparency OFF", "Memory kept in RAM, prefetch OFF", "RAM keeper: frees RAM right now, then every 2 min it frees background RAM + cache when usage is high, never touches games", "NVMe + USB power saving OFF", "NTFS last-access OFF, TRIM ON, MSI interrupts" };
             if (t.StartsWith("VBS")) return new string[] { "VBS + Memory Integrity + mitigations OFF", "Windows Defender real-time + SmartScreen OFF" };
             if (t.StartsWith("Security kept")) return new string[] { "Windows security left ON (Safe Boost)" };
             if (t.StartsWith("Tuning for your CPU")) return new string[] { "Settings matched to your CPU brand" };
