@@ -1,10 +1,10 @@
 @echo off
 :: ============================================================
-::   BU 7MAID ZERO v17.14  -  One-Click Max FPS / Low Delay
+::   BU 7MAID ZERO v17.15  -  One-Click Max FPS / Low Delay
 ::   Progress bar + auto GPU detect + auto restart + full RESTORE
 :: ============================================================
 setlocal EnableExtensions EnableDelayedExpansion
-title BU 7MAID ZERO v17.14
+title BU 7MAID ZERO v17.15
 color 0A
 set "HIDDEN="
 if /i "%~2"=="HIDDEN" set "HIDDEN=1"
@@ -67,7 +67,7 @@ cls
 for /f %%P in ('powershell -NoProfile -Command "(Get-Process).Count"') do set "PROC=%%P"
 echo.
 echo   +===================================================================+
-echo   ^|                  B U   7 M A I D    Z E R O    v17.14               ^|
+echo   ^|                  B U   7 M A I D    Z E R O    v17.15               ^|
 echo   ^|            more FPS  -  less delay  -  fewer processes            ^|
 echo   +===================================================================+
 echo     CPU  !CPUNAME!
@@ -575,7 +575,7 @@ if "%SEC%"=="OFF" (
 reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v SecurityHealth /f >nul 2>&1
 taskkill /f /im SecurityHealthSystray.exe >nul 2>&1
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v "Latency Sensitive" /t REG_SZ /d True /f >nul 2>&1
-:: v17.14 extra tweaks - all reversible, none touch security
+:: v17.15 extra tweaks - all reversible, none touch security
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_FSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_HonorUserFSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_DXGIHonorFSEWindowsCompatible /f >nul 2>&1
@@ -643,8 +643,8 @@ if "%SEC%"=="OFF" reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
 powershell -NoProfile -Command "$t=[IO.File]::ReadAllText('%SELF%'); $m='#RAM'+'KEEP#'; $i=$t.IndexOf($m)+$m.Length; $j=$t.IndexOf('#'+'END#',$i); [IO.File]::WriteAllText($env:ProgramData+'\Bu7maidZero\ramkeep.ps1',$t.Substring($i,$j-$i))" >nul 2>&1
 schtasks /Create /TN "Bu7maid RAM Keeper" /TR "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"%ProgramData%\Bu7maidZero\ramkeep.ps1\"" /SC MINUTE /MO 3 /RU SYSTEM /RL HIGHEST /F >nul 2>&1
 if errorlevel 1 call :BAD "RAM keeper task could not be created"
-schtasks /Create /TN "Bu7maid RAM Boot" /TR "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"%ProgramData%\Bu7maidZero\ramkeep.ps1\"" /SC ONSTART /DELAY 0000:45 /RU SYSTEM /RL HIGHEST /F >nul 2>&1
-echo          RAM keeper on: trims background RAM 45 s after every start, then every 3 min whenever RAM use goes above 40 percent (never touches your game)
+schtasks /Create /TN "Bu7maid RAM Boot" /TR "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"%ProgramData%\Bu7maidZero\ramkeep.ps1\"" /SC ONSTART /DELAY 0000:20 /RU SYSTEM /RL HIGHEST /F >nul 2>&1
+echo          RAM keeper on: trims background RAM 20 s after every start, then every 3 min whenever RAM use goes above 40 percent (never touches your game)
 echo          extra services + tasks off, power saving off, tips/ads off
 exit /b
 
@@ -797,11 +797,14 @@ call :STEP "Lowering RAM usage and keeping it low"
 if not exist "%ProgramData%\Bu7maidZero" md "%ProgramData%\Bu7maidZero" >nul 2>&1
 powershell -NoProfile -Command "$t=[IO.File]::ReadAllText('%SELF%'); $m='#RAM'+'KEEP#'; $i=$t.IndexOf($m)+$m.Length; $j=$t.IndexOf('#'+'END#',$i); [IO.File]::WriteAllText($env:ProgramData+'\Bu7maidZero\ramkeep.ps1',$t.Substring($i,$j-$i))" >nul 2>&1
 schtasks /Create /TN "Bu7maid RAM Keeper" /TR "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"%ProgramData%\Bu7maidZero\ramkeep.ps1\"" /SC MINUTE /MO 3 /RU SYSTEM /RL HIGHEST /F >nul 2>&1
-schtasks /Create /TN "Bu7maid RAM Boot" /TR "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"%ProgramData%\Bu7maidZero\ramkeep.ps1\"" /SC ONSTART /DELAY 0000:45 /RU SYSTEM /RL HIGHEST /F >nul 2>&1
+schtasks /Create /TN "Bu7maid RAM Boot" /TR "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"%ProgramData%\Bu7maidZero\ramkeep.ps1\"" /SC ONSTART /DELAY 0000:20 /RU SYSTEM /RL HIGHEST /F >nul 2>&1
 for /f %%M in ('powershell -NoProfile -Command "$t=(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory; $a=(Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory).AvailableBytes; [int](100-100*$a/$t)"') do set "RB=%%M"
+set "BKFIX=1"
 powershell -NoProfile -ExecutionPolicy Bypass -File "%ProgramData%\Bu7maidZero\ramkeep.ps1" >nul 2>&1
+set "BKFIX="
 call :RAMPS >nul 2>&1
 for /f %%M in ('powershell -NoProfile -Command "$t=(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory; $a=(Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory).AvailableBytes; [int](100-100*$a/$t)"') do set "RA=%%M"
+if exist "%ProgramData%\Bu7maidZero\ram_top.txt" for /f "usebackq delims=" %%T in ("%ProgramData%\Bu7maidZero\ram_top.txt") do if defined HIDDEN echo @@DO=%%T
 if defined RB if defined RA if defined HIDDEN echo @@DO=RAM in use: !RB! percent before, !RA! percent now
 set "RB=" & set "RA="
 if defined HIDDEN echo @@DO=RAM keeper installed - checks every 3 minutes and keeps RAM low, never touches games
@@ -1401,19 +1404,35 @@ public class BKeep {
 }
 "@
 [BKeep]::Prep()
-$load=[BKeep]::Load()
-if($load -lt 40){ exit 0 }
 $games='^(FortniteClient|VALORANT|cs2|r5apex|cod|RainbowSix|TslGame|GTA5|RustClient|Overwatch|MarvelRivals|League of Legends|RobloxPlayerBeta|FiveM|Forza|RocketLeague|javaw)'
-$gaming=@(Get-Process -EA SilentlyContinue | ?{ $_.Name -match $games }).Count -gt 0
-$keep='^(System|Idle|Registry|MemCompression|smss|csrss|wininit|winlogon|services|lsass|svchost|dwm|explorer|audiodg|fontdrvhost|sihost|MsMpEng|NVDisplay\.Container|nvcontainer|powershell)$'
-foreach($p in (Get-Process -EA SilentlyContinue)){
-  try{
-    if($p.Name -match $keep -or $p.Name -match $games){ continue }
-    if($p.WorkingSet64 -lt 80MB){ continue }
-    [void][BKeep]::EmptyWorkingSet($p.Handle)
-  }catch{}
+$keep='^(System|Idle|Registry|MemCompression|smss|csrss|wininit|winlogon|services|lsass|dwm|audiodg|fontdrvhost|NVDisplay\.Container|powershell)$'
+try{
+  $ci=Get-CimInstance Win32_OperatingSystem; $tot=$ci.TotalVisibleMemorySize/1MB
+  $procs=Get-Process -EA SilentlyContinue | Sort-Object WorkingSet64 -Descending
+  $sum=($procs | Measure-Object WorkingSet64 -Sum).Sum/1GB
+  $used=[BKeep]::Load()*$tot/100
+  $lines=@(); $lines+=('Total in use now: {0:N1} GB of {1:N0} GB' -f $used,$tot)
+  foreach($p in ($procs | Select-Object -First 6)){ $lines+=('{0}: {1:N1} GB' -f $p.Name,($p.WorkingSet64/1GB)) }
+  $rest=$used-$sum; if($rest -gt 2){ $lines+=('Memory used by drivers or Windows itself, not by a program: {0:N1} GB' -f $rest) }
+  [IO.File]::WriteAllLines((Join-Path $env:ProgramData 'Bu7maidZero\ram_top.txt'),[string[]]$lines)
+}catch{}
+$up=(Get-Date)-(Get-CimInstance Win32_OperatingSystem).LastBootUpTime
+$passes=1; if($up.TotalMinutes -lt 6 -and -not $env:BKFIX){ $passes=5 }
+for($n=0;$n -lt $passes;$n++){
+  $load=[BKeep]::Load()
+  if($load -ge 25){
+    $gaming=@(Get-Process -EA SilentlyContinue | ?{ $_.Name -match $games }).Count -gt 0
+    foreach($p in (Get-Process -EA SilentlyContinue)){
+      try{
+        if($p.Name -match $keep -or $p.Name -match $games){ continue }
+        if($p.WorkingSet64 -lt 30MB){ continue }
+        [void][BKeep]::EmptyWorkingSet($p.Handle)
+      }catch{}
+    }
+    if(-not $gaming){ [BKeep]::Purge() }
+  }
+  if($n -lt $passes-1){ Start-Sleep -Seconds 40 }
 }
-if(-not $gaming -and $load -ge 45){ [BKeep]::Purge() }
 #END#
 
 #HZSET#
