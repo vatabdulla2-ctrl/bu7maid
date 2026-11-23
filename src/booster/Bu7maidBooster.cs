@@ -56,7 +56,7 @@ namespace Bu7maidBooster
     class MainForm : Form
     {
         const int W = 980, H = 640;
-        const string Version = "v2.27";
+        const string Version = "v2.28";
 
         [DllImport("user32.dll")] static extern bool ReleaseCapture();
         [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
@@ -178,7 +178,7 @@ namespace Bu7maidBooster
         // monitor
         PerformanceCounter cpuCounter;
         bool cpuTried = false;
-        List<KeyValuePair<string, double>> topMem = new List<KeyValuePair<string, double>>(); double nonProcGb = 0; string svcInside = ""; DateTime svcLast = DateTime.MinValue; float cpuNow = 0f, ramNow = 0f; int procCount = 0; double ramTotalGb = 0, ramUsedGb = 0;
+        List<KeyValuePair<string, double>> topMem = new List<KeyValuePair<string, double>>(); double nonProcGb = 0; string svcInside = "", kernInfo = ""; DateTime svcLast = DateTime.MinValue; float cpuNow = 0f, ramNow = 0f; int procCount = 0; double ramTotalGb = 0, ramUsedGb = 0;
         float[] cpuHist = new float[60];
         double lastSample = -10;
 
@@ -320,8 +320,19 @@ namespace Bu7maidBooster
                         }
                         List<KeyValuePair<string, double>> tl = new List<KeyValuePair<string, double>>(byName);
                         tl.Sort(delegate (KeyValuePair<string, double> a, KeyValuePair<string, double> b) { return b.Value.CompareTo(a.Value); });
-                        if (tl.Count > 6) tl.RemoveRange(6, tl.Count - 6);
+                        if (tl.Count > 5) tl.RemoveRange(5, tl.Count - 5);
                         topMem = tl; nonProcGb = Math.Max(0, ramUsedGb - sumGb);
+                        try
+                        {
+                            using (System.Management.ManagementObjectSearcher ps = new System.Management.ManagementObjectSearcher("SELECT * FROM Win32_PerfFormattedData_PerfOS_Memory"))
+                                foreach (System.Management.ManagementBaseObject mo in ps.Get())
+                                {
+                                    double cache = PerfGb(mo, "CacheBytes"), mod = PerfGb(mo, "ModifiedPageListBytes"), pool = PerfGb(mo, "PoolPagedBytes") + PerfGb(mo, "PoolNonpagedBytes");
+                                    kernInfo = "Not programs " + nonProcGb.ToString("0.0") + " GB. Windows cache " + cache.ToString("0.0") + ", to-write " + mod.ToString("0.0") + ", kernel pools " + pool.ToString("0.0") + " GB";
+                                    mo.Dispose(); break;
+                                }
+                        }
+                        catch { }
                         if (bigSvcGb < 1.0) svcInside = "";
                         else if ((DateTime.Now - svcLast).TotalSeconds > 8)
                         {
@@ -342,6 +353,10 @@ namespace Bu7maidBooster
                 }
             });
             th.IsBackground = true; th.Priority = ThreadPriority.BelowNormal; th.Start();
+        }
+        static double PerfGb(System.Management.ManagementBaseObject mo, string name)
+        {
+            try { object v = mo[name]; return v == null ? 0 : Convert.ToDouble(v) / 1073741824.0; } catch { return 0; }
         }
         void Sample()
         {
@@ -1001,12 +1016,9 @@ namespace Bu7maidBooster
                 Txt(g, kv.Value.ToString("0.0") + " GB", Fnt("Segoe UI Semibold", 9f, FontStyle.Bold), T.Txt, 860, ry, 70, 22, StringAlignment.Far, StringAlignment.Center);
             }
             if (svcInside.Length > 0)
-                Txt(g, svcInside, Fnt("Segoe UI", 7.5f, FontStyle.Regular), T.Warn, 580, 526, 350, 28, StringAlignment.Near, StringAlignment.Near);
-            else if (nonProcGb > 2)
-            {
-                Txt(g, "Not a program (driver / Windows)", Fnt("Segoe UI", 9f, FontStyle.Regular), T.Warn, 580, 530, 250, 20, StringAlignment.Near, StringAlignment.Center);
-                Txt(g, nonProcGb.ToString("0.0") + " GB", Fnt("Segoe UI Semibold", 9f, FontStyle.Bold), T.Warn, 860, 530, 70, 20, StringAlignment.Far, StringAlignment.Center);
-            }
+                Txt(g, svcInside, Fnt("Segoe UI", 7.5f, FontStyle.Regular), T.Warn, 580, 500, 350, 28, StringAlignment.Near, StringAlignment.Near);
+            if (kernInfo.Length > 0 && nonProcGb > 1.5)
+                Txt(g, kernInfo, Fnt("Segoe UI", 7.5f, FontStyle.Regular), T.Warn, 580, 528, 350, 28, StringAlignment.Near, StringAlignment.Near);
         }
 
         void DrawRestorePage(Graphics g, double t)

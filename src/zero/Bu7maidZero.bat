@@ -1,10 +1,10 @@
 @echo off
 :: ============================================================
-::   BU 7MAID ZERO v17.18  -  One-Click Max FPS / Low Delay
+::   BU 7MAID ZERO v17.19  -  One-Click Max FPS / Low Delay
 ::   Progress bar + auto GPU detect + auto restart + full RESTORE
 :: ============================================================
 setlocal EnableExtensions EnableDelayedExpansion
-title BU 7MAID ZERO v17.18
+title BU 7MAID ZERO v17.19
 color 0A
 set "HIDDEN="
 if /i "%~2"=="HIDDEN" set "HIDDEN=1"
@@ -67,7 +67,7 @@ cls
 for /f %%P in ('powershell -NoProfile -Command "(Get-Process).Count"') do set "PROC=%%P"
 echo.
 echo   +===================================================================+
-echo   ^|                  B U   7 M A I D    Z E R O    v17.18               ^|
+echo   ^|                  B U   7 M A I D    Z E R O    v17.19               ^|
 echo   ^|            more FPS  -  less delay  -  fewer processes            ^|
 echo   +===================================================================+
 echo     CPU  !CPUNAME!
@@ -359,7 +359,7 @@ reg add "HKLM\SYSTEM\CurrentControlSet\Services\stornvme\Parameters\Device" /v I
 fsutil behavior set disablelastaccess 1 >nul 2>&1
 fsutil behavior set disabledeletenotify 0 >nul 2>&1
 fsutil behavior set disable8dot3 1 >nul 2>&1
-fsutil behavior set memoryusage 2 >nul 2>&1
+fsutil behavior set memoryusage 1 >nul 2>&1
 powershell -NoProfile -Command "if((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory -ge 15GB){Disable-MMAgent -MemoryCompression -EA SilentlyContinue}; Get-Volume -EA SilentlyContinue | ?{$_.DriveLetter -and $_.DriveType -eq 'Fixed'} | %%{ Optimize-Volume -DriveLetter $_.DriveLetter -ReTrim -EA SilentlyContinue }" >nul 2>&1
 set "MSIMODE=SET"
 if not "!SAFE!"=="1" call :PSRUN MSI
@@ -577,7 +577,7 @@ if "%SEC%"=="OFF" (
 reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v SecurityHealth /f >nul 2>&1
 taskkill /f /im SecurityHealthSystray.exe >nul 2>&1
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v "Latency Sensitive" /t REG_SZ /d True /f >nul 2>&1
-:: v17.18 extra tweaks - all reversible, none touch security
+:: v17.19 extra tweaks - all reversible, none touch security
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_FSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_HonorUserFSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_DXGIHonorFSEWindowsCompatible /f >nul 2>&1
@@ -785,6 +785,7 @@ reg delete "HKLM\SYSTEM\CurrentControlSet\Services\mouclass\Parameters" /v Mouse
 reg delete "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" /v GlobalTimerResolutionRequests /f >nul 2>&1
 reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v DisablePagingExecutive /t REG_DWORD /d 0 /f >nul 2>&1
 reg add "HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl" /v Win32PrioritySeparation /t REG_DWORD /d 2 /f >nul 2>&1
+fsutil behavior set memoryusage 1 >nul 2>&1
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" /v SystemResponsiveness /t REG_DWORD /d 20 /f >nul 2>&1
 set "MSIMODE=RESTORE"
 call :PSRUN MSI
@@ -1435,6 +1436,8 @@ public class BKeep {
   [StructLayout(LayoutKind.Sequential)] struct MS { public uint dwLength; public uint dwMemoryLoad; public ulong a,b,c,d,e,f,g; }
   [DllImport("kernel32.dll")] static extern bool GlobalMemoryStatusEx(ref MS m);
   public static int Load(){ MS m=new MS(); m.dwLength=64; GlobalMemoryStatusEx(ref m); return (int)m.dwMemoryLoad; }
+  [DllImport("kernel32.dll", SetLastError=true)] static extern bool SetSystemFileCacheSize(UIntPtr min, UIntPtr max, int flags);
+  public static void FlushCache(){ try{ SetSystemFileCacheSize(new UIntPtr(ulong.MaxValue), new UIntPtr(ulong.MaxValue), 0); }catch{} }
   public static void Purge(){ int c=3; NtSetSystemInformation(80, ref c, 4); c=4; NtSetSystemInformation(80, ref c, 4); }
 }
 "@
@@ -1462,6 +1465,12 @@ for($n=0;$n -lt $passes;$n++){
         if($p.Name -match $keep -or $p.Name -match $games){ continue }
         if($p.WorkingSet64 -lt 30MB){ continue }
         [void][BKeep]::EmptyWorkingSet($p.Handle)
+      }catch{}
+    }
+    [BKeep]::FlushCache()
+    foreach($sv in @(Get-Process svchost -EA SilentlyContinue | ?{ $_.WorkingSet64 -gt 1.5GB })){
+      try{
+        Get-CimInstance Win32_Service -Filter ("ProcessId=" + $sv.Id) -EA SilentlyContinue | ?{ @('wuauserv','BITS','UsoSvc','DoSvc','WpnService','CDPSvc','DiagTrack','iphlpsvc') -contains $_.Name } | %{ Stop-Service -Name $_.Name -Force -EA SilentlyContinue }
       }catch{}
     }
     if(-not $gaming){ [BKeep]::Purge() }
