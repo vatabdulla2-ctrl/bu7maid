@@ -56,7 +56,7 @@ namespace Bu7maidBooster
     class MainForm : Form
     {
         const int W = 980, H = 640;
-        const string Version = "v2.24";
+        const string Version = "v2.25";
 
         [DllImport("user32.dll")] static extern bool ReleaseCapture();
         [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
@@ -178,7 +178,7 @@ namespace Bu7maidBooster
         // monitor
         PerformanceCounter cpuCounter;
         bool cpuTried = false;
-        float cpuNow = 0f, ramNow = 0f; int procCount = 0; double ramTotalGb = 0, ramUsedGb = 0;
+        List<KeyValuePair<string, double>> topMem = new List<KeyValuePair<string, double>>(); double nonProcGb = 0; float cpuNow = 0f, ramNow = 0f; int procCount = 0; double ramTotalGb = 0, ramUsedGb = 0;
         float[] cpuHist = new float[60];
         double lastSample = -10;
 
@@ -311,7 +311,17 @@ namespace Bu7maidBooster
                         {
                             ramNow = ms.dwMemoryLoad; ramTotalGb = ms.ullTotalPhys / 1073741824.0; ramUsedGb = (ms.ullTotalPhys - ms.ullAvailPhys) / 1073741824.0;
                         }
-                        Process[] pl = Process.GetProcesses(); procCount = pl.Length; foreach (Process pp in pl) pp.Dispose();
+                        Process[] pl = Process.GetProcesses(); procCount = pl.Length;
+                        Dictionary<string, double> byName = new Dictionary<string, double>(); double sumGb = 0;
+                        foreach (Process pp in pl)
+                        {
+                            try { double gb = pp.WorkingSet64 / 1073741824.0; string nm = pp.ProcessName; double cur; byName.TryGetValue(nm, out cur); byName[nm] = cur + gb; sumGb += gb; } catch { }
+                            pp.Dispose();
+                        }
+                        List<KeyValuePair<string, double>> tl = new List<KeyValuePair<string, double>>(byName);
+                        tl.Sort(delegate (KeyValuePair<string, double> a, KeyValuePair<string, double> b) { return b.Value.CompareTo(a.Value); });
+                        if (tl.Count > 6) tl.RemoveRange(6, tl.Count - 6);
+                        topMem = tl; nonProcGb = Math.Max(0, ramUsedGb - sumGb);
                     }
                     catch { }
                     Thread.Sleep(1500);
@@ -955,9 +965,9 @@ namespace Bu7maidBooster
             Ring(g, x0 + cw + gap + cw / 2, 205, 66, ramNow / 100f, T.A1, T.A2, ((int)ramNow) + "%", ramUsedGb.ToString("0.0") + " / " + ramTotalGb.ToString("0") + " GB");
             Ring(g, x0 + 2 * (cw + gap) + cw / 2, 205, 66, Math.Min(1f, procCount / 300f), T.Good, T.A2, procCount.ToString(), "processes");
             // cpu history
-            CardBox(g, 104, 336, 862 - 22, 220);
+            CardBox(g, 104, 336, 440, 220);
             Txt(g, "CPU - last minute", Fnt("Segoe UI Semibold", 8.5f, FontStyle.Bold), T.Muted, 124, 346, 300, 20, StringAlignment.Near, StringAlignment.Center);
-            float gx = 124, gy = 374, gw = 820 - 22, gh = 160;
+            float gx = 124, gy = 374, gw = 400, gh = 160;
             using (Pen p = new Pen(Alpha(Color.White, 16), 1f)) { for (int i = 0; i <= 4; i++) g.DrawLine(p, gx, gy + gh * i / 4f, gx + gw, gy + gh * i / 4f); }
             PointF[] pts = new PointF[cpuHist.Length];
             for (int i = 0; i < cpuHist.Length; i++) pts[i] = new PointF(gx + gw * i / (cpuHist.Length - 1f), gy + gh - gh * Math.Min(100f, cpuHist[i]) / 100f);
@@ -965,6 +975,22 @@ namespace Bu7maidBooster
             poly.Add(new PointF(gx + gw, gy + gh)); poly.Add(new PointF(gx, gy + gh));
             using (LinearGradientBrush b = new LinearGradientBrush(new RectangleF(gx, gy, gw, gh), Alpha(T.A2, 90), Alpha(T.A1, 6), 90f)) g.FillPolygon(b, poly.ToArray());
             using (Pen p = new Pen(T.A2, 2.2f)) { p.LineJoin = LineJoin.Round; g.DrawLines(p, pts); }
+            CardBox(g, 560, 336, 384, 220);
+            Txt(g, "BIGGEST RAM USERS RIGHT NOW", Fnt("Segoe UI Semibold", 8.5f, FontStyle.Bold), T.Muted, 580, 346, 340, 20, StringAlignment.Near, StringAlignment.Center);
+            List<KeyValuePair<string, double>> tm = topMem; double mx = 0.1; foreach (KeyValuePair<string, double> kv in tm) if (kv.Value > mx) mx = kv.Value; if (nonProcGb > mx) mx = nonProcGb;
+            int rowN = 0;
+            foreach (KeyValuePair<string, double> kv in tm)
+            {
+                float ry = 374 + rowN * 26; rowN++;
+                Txt(g, kv.Key, Fnt("Segoe UI", 9.5f, FontStyle.Regular), T.Txt, 580, ry, 150, 22, StringAlignment.Near, StringAlignment.Center);
+                using (Brush bb = new SolidBrush(Alpha(T.A2, 150))) g.FillRectangle(bb, 735, ry + 7, (float)(120 * kv.Value / mx), 8);
+                Txt(g, kv.Value.ToString("0.0") + " GB", Fnt("Segoe UI Semibold", 9f, FontStyle.Bold), T.Txt, 860, ry, 70, 22, StringAlignment.Far, StringAlignment.Center);
+            }
+            if (nonProcGb > 2)
+            {
+                Txt(g, "Not a program (driver / Windows)", Fnt("Segoe UI", 9f, FontStyle.Regular), T.Warn, 580, 530, 250, 20, StringAlignment.Near, StringAlignment.Center);
+                Txt(g, nonProcGb.ToString("0.0") + " GB", Fnt("Segoe UI Semibold", 9f, FontStyle.Bold), T.Warn, 860, 530, 70, 20, StringAlignment.Far, StringAlignment.Center);
+            }
         }
 
         void DrawRestorePage(Graphics g, double t)
