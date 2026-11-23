@@ -56,7 +56,7 @@ namespace Bu7maidBooster
     class MainForm : Form
     {
         const int W = 980, H = 640;
-        const string Version = "v2.19";
+        const string Version = "v2.20";
 
         [DllImport("user32.dll")] static extern bool ReleaseCapture();
         [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
@@ -137,6 +137,7 @@ namespace Bu7maidBooster
             if (t.StartsWith("Repairing system files")) return new string[] { "Scans every protected Windows file and restores damaged ones" };
             if (t.StartsWith("Scanning your system drive")) return new string[] { "Online check of the file system, no restart needed" };
             if (t.StartsWith("Undoing old tweaks")) return new string[] { "Removes forced timer and interrupt tweaks and small input queues", "Resets network settings that can slow or break the internet" };
+            if (t.StartsWith("Lowering RAM")) return new string[] { "Frees background RAM and the standby cache right now", "Installs the RAM keeper so usage stays low (not during games)" };
             if (t.StartsWith("Repairing broken Windows")) return new string[] { "Fixes the WMI database and turns on any core service that was left disabled" };
             if (t.StartsWith("Backup")) return new string[] { "Saved your original services + settings (for RESTORE)", "Created a Windows restore point (first run only)" };
             if (t.StartsWith("Health")) return new string[] { "Checks recent crashes, damaged system files, broken services and drivers", "Repairs what it can automatically", "If the PC is unstable: skips risky tweaks (MSI, timer, security-off, extra service cuts)" };
@@ -789,7 +790,7 @@ namespace Bu7maidBooster
         {
             PageHead(g, "Tools", "Quick fixers and cleaners. Each one shows its progress on the BOOST page.");
             string[] ti = { "FIX WINDOWS", "CLEAN DISK", "CLEAN RAM", "VIRUS SCAN" };
-            string[] ts = { "Repairs Windows files, undoes old tweaks that freeze the PC or break keyboard/network, and finds why it crashes. A few minutes.", "Deep clean: temp, caches, old Windows updates, dumps. Takes a few minutes (BOOST already does a fast one).", "Frees unused memory instantly. Nothing else is touched.", "Quick scan with the built-in Microsoft engine. Removes what it finds." };
+            string[] ts = { "Repairs Windows files, undoes old tweaks that freeze the PC or break keyboard/network, and finds why it crashes. Also lowers RAM usage and keeps it low. A few minutes.", "Deep clean: temp, caches, old Windows updates, dumps. Takes a few minutes (BOOST already does a fast one).", "Frees unused memory instantly. Nothing else is touched.", "Quick scan with the built-in Microsoft engine. Removes what it finds." };
             string[] id = { "toolFix", "toolClean", "toolRam", "toolScan" };
             for (int i = 0; i < 4; i++)
             {

@@ -1,10 +1,10 @@
 @echo off
 :: ============================================================
-::   BU 7MAID ZERO v17.12  -  One-Click Max FPS / Low Delay
+::   BU 7MAID ZERO v17.13  -  One-Click Max FPS / Low Delay
 ::   Progress bar + auto GPU detect + auto restart + full RESTORE
 :: ============================================================
 setlocal EnableExtensions EnableDelayedExpansion
-title BU 7MAID ZERO v17.12
+title BU 7MAID ZERO v17.13
 color 0A
 set "HIDDEN="
 if /i "%~2"=="HIDDEN" set "HIDDEN=1"
@@ -67,7 +67,7 @@ cls
 for /f %%P in ('powershell -NoProfile -Command "(Get-Process).Count"') do set "PROC=%%P"
 echo.
 echo   +===================================================================+
-echo   ^|                  B U   7 M A I D    Z E R O    v17.12               ^|
+echo   ^|                  B U   7 M A I D    Z E R O    v17.13               ^|
 echo   ^|            more FPS  -  less delay  -  fewer processes            ^|
 echo   +===================================================================+
 echo     CPU  !CPUNAME!
@@ -575,7 +575,7 @@ if "%SEC%"=="OFF" (
 reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v SecurityHealth /f >nul 2>&1
 taskkill /f /im SecurityHealthSystray.exe >nul 2>&1
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v "Latency Sensitive" /t REG_SZ /d True /f >nul 2>&1
-:: v17.12 extra tweaks - all reversible, none touch security
+:: v17.13 extra tweaks - all reversible, none touch security
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_FSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_HonorUserFSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_DXGIHonorFSEWindowsCompatible /f >nul 2>&1
@@ -727,7 +727,7 @@ exit /b
 :: ============================================================
 :FIXWIN
 cls
-set "TOTAL=6"
+set "TOTAL=7"
 set "STEP=0"
 echo.
 echo   FIX WINDOWS - repairs system files and finds why the PC restarts / crashes
@@ -793,6 +793,18 @@ ipconfig /flushdns >nul 2>&1
 if defined HIDDEN echo @@DO=Timer and priority settings back to Windows defaults
 if defined HIDDEN echo @@DO=Hardware interrupt tweaks undone, keyboard and mouse queues back to normal
 if defined HIDDEN echo @@DO=Network settings reset - fixes slow or broken internet after tweaks
+call :STEP "Lowering RAM usage and keeping it low"
+if not exist "%ProgramData%\Bu7maidZero" md "%ProgramData%\Bu7maidZero" >nul 2>&1
+powershell -NoProfile -Command "$t=[IO.File]::ReadAllText('%SELF%'); $m='#RAM'+'KEEP#'; $i=$t.IndexOf($m)+$m.Length; $j=$t.IndexOf('#'+'END#',$i); [IO.File]::WriteAllText($env:ProgramData+'\Bu7maidZero\ramkeep.ps1',$t.Substring($i,$j-$i))" >nul 2>&1
+schtasks /Create /TN "Bu7maid RAM Keeper" /TR "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"%ProgramData%\Bu7maidZero\ramkeep.ps1\"" /SC MINUTE /MO 3 /RU SYSTEM /RL HIGHEST /F >nul 2>&1
+schtasks /Create /TN "Bu7maid RAM Boot" /TR "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"%ProgramData%\Bu7maidZero\ramkeep.ps1\"" /SC ONSTART /DELAY 0000:45 /RU SYSTEM /RL HIGHEST /F >nul 2>&1
+for /f %%M in ('powershell -NoProfile -Command "$t=(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory; $a=(Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory).AvailableBytes; [int](100-100*$a/$t)"') do set "RB=%%M"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ProgramData%\Bu7maidZero\ramkeep.ps1" >nul 2>&1
+call :RAMPS >nul 2>&1
+for /f %%M in ('powershell -NoProfile -Command "$t=(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory; $a=(Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory).AvailableBytes; [int](100-100*$a/$t)"') do set "RA=%%M"
+if defined RB if defined RA if defined HIDDEN echo @@DO=RAM in use: !RB! percent before, !RA! percent now
+set "RB=" & set "RA="
+if defined HIDDEN echo @@DO=RAM keeper installed - checks every 3 minutes and keeps RAM low, never touches games
 call :STEP "Repairing broken Windows parts"
 set "MSIMODE=USBFIX"
 call :PSRUN MSI
