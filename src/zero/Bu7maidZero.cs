@@ -117,7 +117,7 @@ namespace Bu7maidZero
         }
         public static void Start(string product, string curVer, Control host, Func<bool> busy)
         {
-            Thread t = new Thread(delegate () { try { CleanOld(product, curVer); CheckUpdate(product, curVer, host, busy); } catch { } });
+            Thread t = new Thread(delegate () { try { CleanOld(product, curVer); } catch { } while (true) { try { CheckUpdate(product, curVer, host, busy); } catch { } Thread.Sleep(600000); } });
             t.IsBackground = true; t.Start();
         }
         // copies the download link of the newest version, to send to friends
@@ -473,7 +473,7 @@ namespace Bu7maidZero
 
     class MainForm : Form
     {
-        internal const string Version = "v17.17";
+        internal const string Version = "v17.18";
         [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int a, ref int v, int s);
 
         string batPath;
