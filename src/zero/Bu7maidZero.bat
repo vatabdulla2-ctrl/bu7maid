@@ -1,10 +1,10 @@
 @echo off
 :: ============================================================
-::   BU 7MAID ZERO v17.11  -  One-Click Max FPS / Low Delay
+::   BU 7MAID ZERO v17.12  -  One-Click Max FPS / Low Delay
 ::   Progress bar + auto GPU detect + auto restart + full RESTORE
 :: ============================================================
 setlocal EnableExtensions EnableDelayedExpansion
-title BU 7MAID ZERO v17.11
+title BU 7MAID ZERO v17.12
 color 0A
 set "HIDDEN="
 if /i "%~2"=="HIDDEN" set "HIDDEN=1"
@@ -67,7 +67,7 @@ cls
 for /f %%P in ('powershell -NoProfile -Command "(Get-Process).Count"') do set "PROC=%%P"
 echo.
 echo   +===================================================================+
-echo   ^|                  B U   7 M A I D    Z E R O    v17.11               ^|
+echo   ^|                  B U   7 M A I D    Z E R O    v17.12               ^|
 echo   ^|            more FPS  -  less delay  -  fewer processes            ^|
 echo   +===================================================================+
 echo     CPU  !CPUNAME!
@@ -575,7 +575,7 @@ if "%SEC%"=="OFF" (
 reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v SecurityHealth /f >nul 2>&1
 taskkill /f /im SecurityHealthSystray.exe >nul 2>&1
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v "Latency Sensitive" /t REG_SZ /d True /f >nul 2>&1
-:: v17.11 extra tweaks - all reversible, none touch security
+:: v17.12 extra tweaks - all reversible, none touch security
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_FSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_HonorUserFSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_DXGIHonorFSEWindowsCompatible /f >nul 2>&1
@@ -641,10 +641,10 @@ if "%SEC%"=="ON" powershell -NoProfile -Command "Set-MpPreference -ScanAvgCPULoa
 :: full mode: no Security tray process
 if "%SEC%"=="OFF" reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v SecurityHealth /f >nul 2>&1
 powershell -NoProfile -Command "$t=[IO.File]::ReadAllText('%SELF%'); $m='#RAM'+'KEEP#'; $i=$t.IndexOf($m)+$m.Length; $j=$t.IndexOf('#'+'END#',$i); [IO.File]::WriteAllText($env:ProgramData+'\Bu7maidZero\ramkeep.ps1',$t.Substring($i,$j-$i))" >nul 2>&1
-schtasks /Create /TN "Bu7maid RAM Keeper" /TR "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"%ProgramData%\Bu7maidZero\ramkeep.ps1\"" /SC MINUTE /MO 10 /RU SYSTEM /RL HIGHEST /F >nul 2>&1
+schtasks /Create /TN "Bu7maid RAM Keeper" /TR "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"%ProgramData%\Bu7maidZero\ramkeep.ps1\"" /SC MINUTE /MO 3 /RU SYSTEM /RL HIGHEST /F >nul 2>&1
 if errorlevel 1 call :BAD "RAM keeper task could not be created"
 schtasks /Create /TN "Bu7maid RAM Boot" /TR "powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"%ProgramData%\Bu7maidZero\ramkeep.ps1\"" /SC ONSTART /DELAY 0000:45 /RU SYSTEM /RL HIGHEST /F >nul 2>&1
-echo          RAM keeper on: trims background RAM 45 s after every start, then every 10 min (never touches your game)
+echo          RAM keeper on: trims background RAM 45 s after every start, then every 3 min whenever RAM use goes above 40 percent (never touches your game)
 echo          extra services + tasks off, power saving off, tips/ads off
 exit /b
 
@@ -769,8 +769,6 @@ if "!CR!"=="1" (
     if defined HIDDEN echo @@DO=No drive errors
 )
 call :STEP "Undoing old tweaks that can freeze or break the PC"
-schtasks /Delete /TN "Bu7maid RAM Keeper" /F >nul 2>&1
-schtasks /Delete /TN "Bu7maid RAM Boot" /F >nul 2>&1
 bcdedit /deletevalue useplatformclock >nul 2>&1
 bcdedit /deletevalue useplatformtick >nul 2>&1
 bcdedit /deletevalue tscsyncpolicy >nul 2>&1
@@ -792,7 +790,7 @@ netsh int tcp set global timestamps=default >nul 2>&1
 netsh int tcp set heuristics enabled >nul 2>&1
 netsh winsock reset >nul 2>&1
 ipconfig /flushdns >nul 2>&1
-if defined HIDDEN echo @@DO=RAM keeper removed, timer and priority settings back to Windows defaults
+if defined HIDDEN echo @@DO=Timer and priority settings back to Windows defaults
 if defined HIDDEN echo @@DO=Hardware interrupt tweaks undone, keyboard and mouse queues back to normal
 if defined HIDDEN echo @@DO=Network settings reset - fixes slow or broken internet after tweaks
 call :STEP "Repairing broken Windows parts"
@@ -1384,21 +1382,26 @@ public class BKeep {
   [DllImport("kernel32.dll")] static extern IntPtr GetCurrentProcess();
   static void Priv(string n){ IntPtr t; OpenProcessToken(GetCurrentProcess(), 0x28, out t); TP tp = new TP(); tp.Count=1; tp.Attr=2; LookupPrivilegeValue(null, n, out tp.Luid); AdjustTokenPrivileges(t, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero); }
   public static void Prep(){ Priv("SeProfileSingleProcessPrivilege"); Priv("SeIncreaseQuotaPrivilege"); }
+  [StructLayout(LayoutKind.Sequential)] struct MS { public uint dwLength; public uint dwMemoryLoad; public ulong a,b,c,d,e,f,g; }
+  [DllImport("kernel32.dll")] static extern bool GlobalMemoryStatusEx(ref MS m);
+  public static int Load(){ MS m=new MS(); m.dwLength=64; GlobalMemoryStatusEx(ref m); return (int)m.dwMemoryLoad; }
   public static void Purge(){ int c=3; NtSetSystemInformation(80, ref c, 4); c=4; NtSetSystemInformation(80, ref c, 4); }
 }
 "@
 [BKeep]::Prep()
+$load=[BKeep]::Load()
+if($load -lt 40){ exit 0 }
 $games='^(FortniteClient|VALORANT|cs2|r5apex|cod|RainbowSix|TslGame|GTA5|RustClient|Overwatch|MarvelRivals|League of Legends|RobloxPlayerBeta|FiveM|Forza|RocketLeague|javaw)'
 $gaming=@(Get-Process -EA SilentlyContinue | ?{ $_.Name -match $games }).Count -gt 0
 $keep='^(System|Idle|Registry|MemCompression|smss|csrss|wininit|winlogon|services|lsass|svchost|dwm|explorer|audiodg|fontdrvhost|sihost|MsMpEng|NVDisplay\.Container|nvcontainer|powershell)$'
 foreach($p in (Get-Process -EA SilentlyContinue)){
   try{
     if($p.Name -match $keep -or $p.Name -match $games){ continue }
-    if($p.WorkingSet64 -lt 120MB){ continue }
+    if($p.WorkingSet64 -lt 80MB){ continue }
     [void][BKeep]::EmptyWorkingSet($p.Handle)
   }catch{}
 }
-if(-not $gaming){ [BKeep]::Purge() }
+if(-not $gaming -and $load -ge 45){ [BKeep]::Purge() }
 #END#
 
 #HZSET#
