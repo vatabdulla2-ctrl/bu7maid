@@ -1,10 +1,10 @@
 @echo off
 :: ============================================================
-::   BU 7MAID ZERO v17.8  -  One-Click Max FPS / Low Delay
+::   BU 7MAID ZERO v17.9  -  One-Click Max FPS / Low Delay
 ::   Progress bar + auto GPU detect + auto restart + full RESTORE
 :: ============================================================
 setlocal EnableExtensions EnableDelayedExpansion
-title BU 7MAID ZERO v17.8
+title BU 7MAID ZERO v17.9
 color 0A
 set "HIDDEN="
 if /i "%~2"=="HIDDEN" set "HIDDEN=1"
@@ -52,6 +52,7 @@ if /i "%~1"=="DPCTOOL" goto DELAYTEST
 if /i "%~1"=="BIOS"    goto BIOS
 if /i "%~1"=="STATUS"  goto STATUS
 if /i "%~1"=="CLEAN"   goto CLEANONLY
+if /i "%~1"=="FIXWIN"  goto FIXWIN
 if /i "%~1"=="RAM"     goto RAMCLEAN
 if /i "%~1"=="SCAN"    goto SCAN
 if /i "%~1"=="PANEL"   goto GPUGUIDE
@@ -66,7 +67,7 @@ cls
 for /f %%P in ('powershell -NoProfile -Command "(Get-Process).Count"') do set "PROC=%%P"
 echo.
 echo   +===================================================================+
-echo   ^|                  B U   7 M A I D    Z E R O    v17.8               ^|
+echo   ^|                  B U   7 M A I D    Z E R O    v17.9               ^|
 echo   ^|            more FPS  -  less delay  -  fewer processes            ^|
 echo   +===================================================================+
 echo     CPU  !CPUNAME!
@@ -570,7 +571,7 @@ if "%SEC%"=="OFF" (
 reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v SecurityHealth /f >nul 2>&1
 taskkill /f /im SecurityHealthSystray.exe >nul 2>&1
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v "Latency Sensitive" /t REG_SZ /d True /f >nul 2>&1
-:: v17.8 extra tweaks - all reversible, none touch security
+:: v17.9 extra tweaks - all reversible, none touch security
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_FSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_HonorUserFSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_DXGIHonorFSEWindowsCompatible /f >nul 2>&1
@@ -720,6 +721,59 @@ call :PSRUN RAMPS
 exit /b
 
 :: ============================================================
+:FIXWIN
+cls
+set "TOTAL=5"
+set "STEP=0"
+echo.
+echo   FIX WINDOWS - repairs system files and finds why the PC restarts / crashes
+echo.
+call :STEP "Finding out why your PC restarts or crashes"
+del /f /q "%BK%\fix.txt" >nul 2>&1
+call :PSRUN CRASHWHY
+if exist "%BK%\fix.txt" for /f "usebackq delims=" %%L in ("%BK%\fix.txt") do (
+    if defined HIDDEN (echo @@DO=%%L) else echo     %%L
+)
+call :STEP "Checking the Windows image (DISM)"
+set "DR=0"
+DISM /Online /Cleanup-Image /CheckHealth 2>&1 | findstr /i /c:"repairable" >nul && set "DR=1"
+if "!DR!"=="1" (
+    if defined HIDDEN echo @@DO=Damage found - repairing from Windows Update, please wait
+    DISM /Online /Cleanup-Image /RestoreHealth >nul 2>&1
+    if errorlevel 1 (if defined HIDDEN echo @@DO=Could not finish the repair - check your internet and run it again) else (if defined HIDDEN echo @@DO=Windows image repaired)
+) else (
+    if defined HIDDEN echo @@DO=Windows image is healthy
+)
+call :STEP "Repairing system files (SFC) - the longest part"
+sfc /scannow > "%BK%\sfc.txt" 2>&1
+powershell -NoProfile -Command "$t=[IO.File]::ReadAllText('%BK%\sfc.txt',[Text.Encoding]::Unicode); if($t -match 'did not find any integrity'){exit 10}elseif($t -match 'successfully repaired'){exit 11}elseif($t -match 'unable to fix'){exit 12}else{exit 13}" >nul 2>&1
+set "SR=!errorlevel!"
+if defined HIDDEN (
+    if "!SR!"=="10" echo @@DO=All system files are fine
+    if "!SR!"=="11" echo @@DO=Damaged system files were found and repaired - restart the PC
+    if "!SR!"=="12" echo @@DO=Some files could not be repaired - run it again after a restart
+    if "!SR!"=="13" echo @@DO=System file check finished
+)
+call :STEP "Scanning your system drive for errors"
+set "CR=0"
+chkdsk %SystemDrive% /scan >"%BK%\chk.txt" 2>&1
+if errorlevel 1 set "CR=1"
+if "!CR!"=="1" (
+    chkdsk %SystemDrive% /spotfix >nul 2>&1
+    if defined HIDDEN echo @@DO=Drive errors found - they get fixed at the next restart
+) else (
+    if defined HIDDEN echo @@DO=No drive errors
+)
+call :STEP "Repairing broken Windows parts"
+powershell -NoProfile -Command "$w=(& winmgmt /verifyrepository 2>&1) -join ' '; if($w -match 'inconsistent'){ & winmgmt /salvagerepository | Out-Null; exit 20 }; foreach($n in 'RpcSs','DcomLaunch','EventLog','PlugPlay','Power','Winmgmt','ProfSvc','Themes','Audiosrv','cbdhsvc','TabletInputService','TextInputManagementService','BFE','mpssvc','CryptSvc','TrustedInstaller'){ $k='HKLM:\SYSTEM\CurrentControlSet\Services\'+$n; if(Test-Path $k){ $v=(Get-ItemProperty $k -Name Start -EA SilentlyContinue).Start; if($v -eq 4){ Set-ItemProperty $k -Name Start -Value 3 -EA SilentlyContinue; $n | Out-File -Append '%BK%\fixsvc.txt' } } }; exit 0" >nul 2>&1
+if "!errorlevel!"=="20" (if defined HIDDEN echo @@DO=Windows WMI database was broken - repaired)
+if exist "%BK%\fixsvc.txt" (if defined HIDDEN echo @@DO=Re-enabled Windows services that were disabled) & del /f /q "%BK%\fixsvc.txt" >nul 2>&1
+if defined HIDDEN echo @@DO=Restart the PC once so everything is applied
+if defined HIDDEN echo @@PCT=100
+echo   Done.
+if not defined HIDDEN timeout /t 2 >nul
+goto MENU
+
 :CLEANONLY
 cls
 echo.
@@ -1202,6 +1256,64 @@ try{
   if($e -gt 0){ $o+="$e devices with driver problems in Device Manager" }
 }catch{}
 if($bad){ $o=@('UNSTABLE')+$o }
+[IO.File]::WriteAllLines($out,[string[]]$o)
+#END#
+#CRASHWHY#
+$o=@(); $out=Join-Path $env:BK 'fix.txt'
+$map=@{
+ 0x124='Hardware error (WHEA): CPU or RAM overclock/undervolt too aggressive, or a failing part - turn XMP/EXPO and any OC off to test';
+ 0x133='Driver stuck too long (DPC watchdog): update chipset, SSD and network drivers and the SSD firmware';
+ 0x116='Graphics driver crashed: reinstall the GPU driver clean and lower any GPU overclock';
+ 0x117='Graphics driver crashed: reinstall the GPU driver clean and lower any GPU overclock';
+ 0x119='Graphics driver crashed: reinstall the GPU driver clean and lower any GPU overclock';
+ 0x141='Graphics driver crashed: reinstall the GPU driver clean and lower any GPU overclock';
+ 0x1A='Memory problem: RAM unstable - turn XMP/EXPO off, or run a memory test';
+ 0x4E='Memory problem: RAM unstable or bad driver - turn XMP/EXPO off, or run a memory test';
+ 0x50='Memory problem: RAM unstable or bad driver - turn XMP/EXPO off, or run a memory test';
+ 0x3B='Driver or RAM fault - update drivers, test the RAM';
+ 0xA='Bad driver touched memory it should not - update or remove the latest driver';
+ 0xD1='Bad driver - update or remove the latest installed driver';
+ 0xC4='Bad driver - update or remove the latest installed driver';
+ 0xC9='Bad driver - update or remove the latest installed driver';
+ 0x9F='A device did not wake or sleep right - update chipset, USB and network drivers';
+ 0xEF='A core Windows process died - system files damaged, this repair fixes it';
+ 0x1E='Kernel exception - drivers or system files, this repair fixes files';
+ 0x7A='Disk read problem - check the SSD health, cable and drivers';
+ 0x7B='Windows cannot read the boot drive - storage driver or SSD problem';
+ 0xF4='A critical process was killed - usually the system drive is failing';
+ 0x154='Storage driver failure - update the SSD and chipset drivers';
+ 0x139='Kernel security check failed - bad driver or unstable RAM';
+ 0x101='CPU stopped responding: CPU overclock/undervolt or BIOS power settings - reset the BIOS to defaults';
+ 0xC2='Bad driver - update or remove the latest installed driver';
+ 0x19='Corrupt memory pool - drivers or RAM'
+}
+try{
+  $since=(Get-Date).AddDays(-30)
+  $bc=@(Get-WinEvent -FilterHashtable @{LogName='System';ProviderName='Microsoft-Windows-WER-SystemErrorReporting';Id=1001;StartTime=$since} -EA SilentlyContinue)
+  $kp=@(Get-WinEvent -FilterHashtable @{LogName='System';ProviderName='Microsoft-Windows-Kernel-Power';Id=41;StartTime=$since} -EA SilentlyContinue)
+  $codes=@{}
+  foreach($e in $bc){ if($e.Message -match 'bugcheck was: (0x[0-9a-fA-F]+)'){ $c=[Convert]::ToInt32($matches[1],16); if($c -ne 0){ $codes[$c]++ } } }
+  if($codes.Count -gt 0){
+    $o+="Blue screens in the last 30 days: $($bc.Count)"
+    foreach($c in ($codes.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 3)){
+      $why= if($map.ContainsKey([int]$c.Key)){ $map[[int]$c.Key] } else { 'Update all drivers and test the RAM' }
+      $o+=('Code 0x{0:X} x{1}: {2}' -f $c.Key,$c.Value,$why)
+    }
+  } elseif($kp.Count -gt 0){
+    $o+="The PC lost power suddenly $($kp.Count) times with no blue screen"
+    $o+='Cause is usually: power supply, overheating, a loose power cable, or an unstable overclock'
+  } else { $o+='No crashes or sudden restarts found in the last 30 days' }
+  $gp=@(Get-WinEvent -FilterHashtable @{LogName='System';ProviderName='Display';Id=4101;StartTime=$since} -EA SilentlyContinue).Count
+  if($gp -gt 0){ $o+="The graphics driver stopped and recovered $gp times - lower GPU overclock or reinstall the driver" }
+  $ap=@(Get-WinEvent -FilterHashtable @{LogName='Application';ProviderName='Application Error';Id=1000;StartTime=$since} -EA SilentlyContinue)
+  if($ap.Count -gt 0){
+    $top=$ap | %{ $_.Properties[0].Value } | Group-Object | Sort-Object Count -Descending | Select-Object -First 3
+    $o+=('Apps that crashed most: ' + (($top | %{ "$($_.Name) x$($_.Count)" }) -join ', '))
+  }
+  $pd=@(Get-PhysicalDisk -EA SilentlyContinue | ?{ $_.HealthStatus -ne 'Healthy' })
+  if($pd.Count -gt 0){ $o+="A drive reports it is not healthy: $($pd[0].FriendlyName) - back up your files" }
+}catch{ $o+='Could not read the crash history' }
+$o=$o | %{ ($_ -replace '[()&|<>"%^]','') }
 [IO.File]::WriteAllLines($out,[string[]]$o)
 #END#
 #MSI#

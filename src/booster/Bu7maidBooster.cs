@@ -56,7 +56,7 @@ namespace Bu7maidBooster
     class MainForm : Form
     {
         const int W = 980, H = 640;
-        const string Version = "v2.15";
+        const string Version = "v2.16";
 
         [DllImport("user32.dll")] static extern bool ReleaseCapture();
         [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
@@ -132,6 +132,11 @@ namespace Bu7maidBooster
         }
         static string[] Detail(string t)
         {
+            if (t.StartsWith("Finding out why")) return new string[] { "Reads the last 30 days of blue screens and sudden restarts", "Names the most likely cause (RAM, GPU driver, overclock, power...)" };
+            if (t.StartsWith("Checking the Windows image")) return new string[] { "Checks the Windows component store and repairs it if damaged" };
+            if (t.StartsWith("Repairing system files")) return new string[] { "Scans every protected Windows file and restores damaged ones" };
+            if (t.StartsWith("Scanning your system drive")) return new string[] { "Online check of the file system, no restart needed" };
+            if (t.StartsWith("Repairing broken Windows")) return new string[] { "Fixes the WMI database and re-enables core services" };
             if (t.StartsWith("Backup")) return new string[] { "Saved your original services + settings (for RESTORE)", "Created a Windows restore point (first run only)" };
             if (t.StartsWith("Health")) return new string[] { "Checks recent crashes, damaged system files, broken services and drivers", "Repairs what it can automatically", "If the PC is unstable: skips risky tweaks (MSI, timer, security-off, extra service cuts)" };
             if (t.StartsWith("Ultimate power")) return new string[] { "Ultimate Performance power plan ON", "CPU cores never park, full speed all the time", "Hibernation + power throttling OFF", "Laptop on battery keeps a saving mode" };
@@ -781,24 +786,24 @@ namespace Bu7maidBooster
         }
         void DrawToolsPage(Graphics g, double t)
         {
-            PageHead(g, "Tools", "Quick cleaners. Each one shows its progress on the BOOST page.");
-            string[] ti = { "CLEAN DISK", "CLEAN RAM", "VIRUS SCAN" };
-            float ysh = 148 + 3 * 108;
-            CardBox(g, 104, ysh, 840, 92);
-            Txt(g, "SHARE WITH FRIENDS", Fnt("Segoe UI Semibold", 13f, FontStyle.Bold), T.Txt, 130, ysh + 14, 500, 30, StringAlignment.Near, StringAlignment.Center);
-            Txt(g, "Copies the download link. Your friends get the program and it updates itself.", Fnt("Segoe UI", 9.5f, FontStyle.Regular), T.Muted, 130, ysh + 48, 600, 26, StringAlignment.Near, StringAlignment.Center);
-            Btn(g, "toolShare", "COPY LINK", 760, ysh + 22, 160, 48, 1, false);
-            Btn(g, "toolTg", "TEST TELEGRAM", 570, ysh + 22, 180, 48, 1, false);
-            string[] ts = { "Deep clean: temp, caches, old Windows updates, dumps. Takes a few minutes (BOOST already does a fast one).", "Frees unused memory instantly. Nothing else is touched.", "Quick scan with the built-in Microsoft engine. Removes what it finds." };
-            string[] id = { "toolClean", "toolRam", "toolScan" };
-            for (int i = 0; i < 3; i++)
+            PageHead(g, "Tools", "Quick fixers and cleaners. Each one shows its progress on the BOOST page.");
+            string[] ti = { "FIX WINDOWS", "CLEAN DISK", "CLEAN RAM", "VIRUS SCAN" };
+            string[] ts = { "Repairs Windows files (DISM + SFC + drive check) and tells you why the PC restarts or crashes. Takes a few minutes.", "Deep clean: temp, caches, old Windows updates, dumps. Takes a few minutes (BOOST already does a fast one).", "Frees unused memory instantly. Nothing else is touched.", "Quick scan with the built-in Microsoft engine. Removes what it finds." };
+            string[] id = { "toolFix", "toolClean", "toolRam", "toolScan" };
+            for (int i = 0; i < 4; i++)
             {
-                float y = 148 + i * 108;
-                CardBox(g, 104, y, 840, 92);
-                Txt(g, ti[i], Fnt("Segoe UI Semibold", 13f, FontStyle.Bold), T.Txt, 130, y + 14, 500, 30, StringAlignment.Near, StringAlignment.Center);
-                Txt(g, ts[i], Fnt("Segoe UI", 9.5f, FontStyle.Regular), T.Muted, 130, y + 48, 560, 26, StringAlignment.Near, StringAlignment.Center);
-                Btn(g, id[i], running ? "WORKING..." : "RUN", 760, y + 22, 160, 48, 1, false);
+                float y = 140 + i * 86;
+                CardBox(g, 104, y, 840, 74);
+                Txt(g, ti[i], Fnt("Segoe UI Semibold", 12f, FontStyle.Bold), T.Txt, 130, y + 8, 500, 28, StringAlignment.Near, StringAlignment.Center);
+                Txt(g, ts[i], Fnt("Segoe UI", 9f, FontStyle.Regular), T.Muted, 130, y + 38, 600, 30, StringAlignment.Near, StringAlignment.Near);
+                Btn(g, id[i], running ? "WORKING..." : "RUN", 760, y + 13, 160, 48, i == 0 ? 0 : 1, false);
             }
+            float ysh = 140 + 4 * 86;
+            CardBox(g, 104, ysh, 840, 74);
+            Txt(g, "SHARE WITH FRIENDS", Fnt("Segoe UI Semibold", 12f, FontStyle.Bold), T.Txt, 130, ysh + 8, 500, 28, StringAlignment.Near, StringAlignment.Center);
+            Txt(g, "Copies the download link. Your friends get the program and it updates itself.", Fnt("Segoe UI", 9f, FontStyle.Regular), T.Muted, 130, ysh + 38, 430, 30, StringAlignment.Near, StringAlignment.Near);
+            Btn(g, "toolShare", "COPY LINK", 760, ysh + 13, 160, 48, 1, false);
+            Btn(g, "toolTg", "TEST TELEGRAM", 570, ysh + 13, 180, 48, 1, false);
         }
 
         // ---------------- your hardware (motherboard, BIOS, CPU, RAM, GPU, drives, network) ----------------
@@ -1019,6 +1024,9 @@ namespace Bu7maidBooster
                 case "stRefresh": if (z != null) z.BStatusRefresh(); break;
                 case "toggleMeasure": if (!running) measure = !measure; break;
                 case "games": if (!running) { if (z != null) { try { z.BAskCod(); } catch { } } page = 0; Run("GAMES", "TUNING GAMES", 2); } break;
+                case "toolFix":
+                    if (!running && MessageBox.Show("Repairs Windows system files and finds why the PC restarts or crashes.\nIt can take a few minutes and needs internet if Windows files are damaged.\n\nStart?", "Bu 7maid Booster", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes) { page = 0; Run("FIXWIN", "FIXING WINDOWS", 3); }
+                    break;
                 case "toolClean": if (!running) { page = 0; Run("CLEAN", "CLEANING DISK", 3); } break;
                 case "toolRam": if (!running) { page = 0; Run("RAM", "CLEANING RAM", 3); } break;
                 case "toolScan":
