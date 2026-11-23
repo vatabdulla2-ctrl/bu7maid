@@ -56,7 +56,7 @@ namespace Bu7maidBooster
     class MainForm : Form
     {
         const int W = 980, H = 640;
-        const string Version = "v2.14";
+        const string Version = "v2.15";
 
         [DllImport("user32.dll")] static extern bool ReleaseCapture();
         [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
@@ -133,6 +133,7 @@ namespace Bu7maidBooster
         static string[] Detail(string t)
         {
             if (t.StartsWith("Backup")) return new string[] { "Saved your original services + settings (for RESTORE)", "Created a Windows restore point (first run only)" };
+            if (t.StartsWith("Health")) return new string[] { "Checks recent crashes, damaged system files, broken services and drivers", "Repairs what it can automatically", "If the PC is unstable: skips risky tweaks (MSI, timer, security-off, extra service cuts)" };
             if (t.StartsWith("Ultimate power")) return new string[] { "Ultimate Performance power plan ON", "CPU cores never park, full speed all the time", "Hibernation + power throttling OFF", "Laptop on battery keeps a saving mode" };
             if (t.StartsWith("Merging svchost")) return new string[] { "Merged background service hosts", "Far fewer running processes, more free RAM" };
             if (t.StartsWith("Disabling useless")) return new string[] { "Stopped telemetry, Maps, Fax, Xbox, updaters...", "Services for hardware you do not have: OFF", "Game launchers no longer start with Windows", "Windows Hello PIN + sign-in kept working" };

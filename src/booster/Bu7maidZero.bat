@@ -1,10 +1,10 @@
 @echo off
 :: ============================================================
-::   BU 7MAID ZERO v17.7  -  One-Click Max FPS / Low Delay
+::   BU 7MAID ZERO v17.8  -  One-Click Max FPS / Low Delay
 ::   Progress bar + auto GPU detect + auto restart + full RESTORE
 :: ============================================================
 setlocal EnableExtensions EnableDelayedExpansion
-title BU 7MAID ZERO v17.7
+title BU 7MAID ZERO v17.8
 color 0A
 set "HIDDEN="
 if /i "%~2"=="HIDDEN" set "HIDDEN=1"
@@ -66,7 +66,7 @@ cls
 for /f %%P in ('powershell -NoProfile -Command "(Get-Process).Count"') do set "PROC=%%P"
 echo.
 echo   +===================================================================+
-echo   ^|                  B U   7 M A I D    Z E R O    v17.7               ^|
+echo   ^|                  B U   7 M A I D    Z E R O    v17.8               ^|
 echo   ^|            more FPS  -  less delay  -  fewer processes            ^|
 echo   +===================================================================+
 echo     CPU  !CPUNAME!
@@ -141,13 +141,24 @@ echo   Processes before: %PROC%
 echo %PROC%> "%BK%\proc_before.txt"
 echo.
 set /a STEP=0
-set "TOTAL=24"
+set "TOTAL=25"
 
 call :STEP "Backup + System Restore point"
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore" /v SystemRestorePointCreationFrequency /t REG_DWORD /d 0 /f >nul 2>&1
 if not exist "%BK%\rp.done" powershell -NoProfile -Command "Enable-ComputerRestore -Drive '%SystemDrive%\' -EA SilentlyContinue; Checkpoint-Computer -Description 'Bu7maid Booster Before' -RestorePointType MODIFY_SETTINGS -EA SilentlyContinue" >nul 2>&1
 echo 1>"%BK%\rp.done" 2>nul
 if not exist "%BK%\services_original.csv" powershell -NoProfile -Command "Get-CimInstance Win32_Service | Select-Object Name,StartMode | Export-Csv -NoTypeInformation -Path '%BK%\services_original.csv'" >nul 2>&1
+
+call :STEP "Health check: fixing Windows problems, skipping risky tweaks if unstable"
+set "SAFE=0"
+del /f /q "%BK%\health.txt" >nul 2>&1
+call :PSRUN HEALTH
+if exist "%BK%\health.txt" (
+    for /f "usebackq delims=" %%L in ("%BK%\health.txt") do (
+        if /i "%%L"=="UNSTABLE" (set "SAFE=1") else if defined HIDDEN echo @@DO=%%L
+    )
+)
+if "!SAFE!"=="1" set "SEC=ON"
 
 call :STEP "Ultimate power plan, no core parking, boost aggressive"
 powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 99999999-9999-9999-9999-999999999999 >nul 2>&1
@@ -291,7 +302,7 @@ rem timer settings: kept at Windows defaults - forcing platform tick / tsc polic
 bcdedit /deletevalue useplatformclock >nul 2>&1
 bcdedit /deletevalue useplatformtick >nul 2>&1
 bcdedit /deletevalue tscsyncpolicy >nul 2>&1
-bcdedit /set disabledynamictick yes >nul 2>&1
+if not "!SAFE!"=="1" bcdedit /set disabledynamictick yes >nul 2>&1
 bcdedit /set bootmenupolicy standard >nul 2>&1
 bcdedit /timeout 3 >nul 2>&1
 reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Power" /v HiberbootEnabled /t REG_DWORD /d 0 /f >nul 2>&1
@@ -346,7 +357,7 @@ fsutil behavior set disable8dot3 1 >nul 2>&1
 fsutil behavior set memoryusage 2 >nul 2>&1
 powershell -NoProfile -Command "if((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory -ge 15GB){Disable-MMAgent -MemoryCompression -EA SilentlyContinue}; Get-Volume -EA SilentlyContinue | ?{$_.DriveLetter -and $_.DriveType -eq 'Fixed'} | %%{ Optimize-Volume -DriveLetter $_.DriveLetter -ReTrim -EA SilentlyContinue }" >nul 2>&1
 set "MSIMODE=SET"
-call :PSRUN MSI
+if not "!SAFE!"=="1" call :PSRUN MSI
 reg add "HKLM\SOFTWARE\Microsoft\Windows\Dwm" /v OverlayTestMode /t REG_DWORD /d 5 /f >nul 2>&1
 if not exist "%BK%\rsv.done" DISM /Online /Set-ReservedStorageState /State:Disabled /NoRestart >nul 2>&1
 echo 1>"%BK%\rsv.done" 2>nul
@@ -423,7 +434,7 @@ if defined HIDDEN echo @@DO=Your graphics card: !GPUNAME!
 call :GPUTWEAK
 
 call :STEP "Extra cuts: more processes off, more FPS (safe)"
-call :EXTRA
+if not "!SAFE!"=="1" call :EXTRA
 
 call :STEP "Scanning your games and tuning each one"
 call :PSRUN GAMEOPT
@@ -559,7 +570,7 @@ if "%SEC%"=="OFF" (
 reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v SecurityHealth /f >nul 2>&1
 taskkill /f /im SecurityHealthSystray.exe >nul 2>&1
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v "Latency Sensitive" /t REG_SZ /d True /f >nul 2>&1
-:: v17.7 extra tweaks - all reversible, none touch security
+:: v17.8 extra tweaks - all reversible, none touch security
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_FSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_HonorUserFSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_DXGIHonorFSEWindowsCompatible /f >nul 2>&1
@@ -1158,6 +1169,41 @@ goto MENU
 exit /b
 
 :: ===== PowerShell payloads (read by :PSRUN, never run by CMD) =====
+#HEALTH#
+$o=@(); $bad=0; $out=Join-Path $env:BK 'health.txt'
+try{
+  $since=(Get-Date).AddDays(-14)
+  $kp=@(Get-WinEvent -FilterHashtable @{LogName='System';ProviderName='Microsoft-Windows-Kernel-Power';Id=41;StartTime=$since} -EA SilentlyContinue).Count
+  $bc=@(Get-WinEvent -FilterHashtable @{LogName='System';ProviderName='Microsoft-Windows-WER-SystemErrorReporting';Id=1001;StartTime=$since} -EA SilentlyContinue).Count
+  $wh=@(Get-WinEvent -FilterHashtable @{LogName='System';ProviderName='Microsoft-Windows-WHEA-Logger';StartTime=$since} -EA SilentlyContinue).Count
+  $md=@(Get-ChildItem "$env:SystemRoot\Minidump" -Filter *.dmp -EA SilentlyContinue | ?{ $_.LastWriteTime -gt $since }).Count
+  if(($kp+$bc) -ge 2 -or $wh -ge 1 -or $md -ge 2){ $bad=1; $o+="This PC crashed recently - $($kp+$bc) crashes, $wh hardware errors - risky tweaks skipped - safe ones only" } else { $o+='No recent crashes found - full boost allowed' }
+}catch{}
+try{
+  foreach($n in 'RpcSs','DcomLaunch','EventLog','PlugPlay','Power','Winmgmt','ProfSvc','Themes','AudioSrv','Audiosrv','cbdhsvc','TabletInputService','TextInputManagementService'){
+    $k="HKLM:\SYSTEM\CurrentControlSet\Services\$n"
+    if(Test-Path $k){ $v=(Get-ItemProperty $k -Name Start -EA SilentlyContinue).Start; if($v -eq 4){ Set-ItemProperty $k -Name Start -Value 3 -EA SilentlyContinue; $o+="Repaired disabled Windows service: $n" } }
+  }
+}catch{}
+try{
+  $w=(& winmgmt /verifyrepository 2>&1) -join ' '
+  if($w -match 'inconsistent'){ & winmgmt /salvagerepository | Out-Null; $o+='Repaired the Windows WMI database' }
+}catch{}
+try{
+  $d=(& DISM /Online /Cleanup-Image /CheckHealth 2>&1) -join ' '
+  if($d -match 'repairable'){ $bad=1; $o+='Windows system files are damaged - run DISM RestoreHealth then sfc scannow later, risky tweaks skipped' }
+}catch{}
+try{
+  $pe=(Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') -or (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending')
+  if($pe){ $o+='Windows has a pending restart - restart after the boost' }
+  $c=Get-Volume -DriveLetter ($env:SystemDrive.Substring(0,1)) -EA SilentlyContinue
+  if($c -and $c.Size -gt 0 -and ($c.SizeRemaining/$c.Size) -lt 0.1){ $o+='System drive is almost full - free some space' }
+  $e=@(Get-PnpDevice -PresentOnly -EA SilentlyContinue | ?{ $_.Status -eq 'Error' }).Count
+  if($e -gt 0){ $o+="$e devices with driver problems in Device Manager" }
+}catch{}
+if($bad){ $o=@('UNSTABLE')+$o }
+[IO.File]::WriteAllLines($out,[string[]]$o)
+#END#
 #MSI#
 $bk=Join-Path $env:BK 'msi_backup.csv'
 if($env:MSIMODE -eq 'RESTORE'){
