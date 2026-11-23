@@ -1,10 +1,10 @@
 @echo off
 :: ============================================================
-::   BU 7MAID ZERO v17.10  -  One-Click Max FPS / Low Delay
+::   BU 7MAID ZERO v17.11  -  One-Click Max FPS / Low Delay
 ::   Progress bar + auto GPU detect + auto restart + full RESTORE
 :: ============================================================
 setlocal EnableExtensions EnableDelayedExpansion
-title BU 7MAID ZERO v17.10
+title BU 7MAID ZERO v17.11
 color 0A
 set "HIDDEN="
 if /i "%~2"=="HIDDEN" set "HIDDEN=1"
@@ -67,7 +67,7 @@ cls
 for /f %%P in ('powershell -NoProfile -Command "(Get-Process).Count"') do set "PROC=%%P"
 echo.
 echo   +===================================================================+
-echo   ^|                  B U   7 M A I D    Z E R O    v17.10               ^|
+echo   ^|                  B U   7 M A I D    Z E R O    v17.11               ^|
 echo   ^|            more FPS  -  less delay  -  fewer processes            ^|
 echo   +===================================================================+
 echo     CPU  !CPUNAME!
@@ -575,7 +575,7 @@ if "%SEC%"=="OFF" (
 reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v SecurityHealth /f >nul 2>&1
 taskkill /f /im SecurityHealthSystray.exe >nul 2>&1
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v "Latency Sensitive" /t REG_SZ /d True /f >nul 2>&1
-:: v17.10 extra tweaks - all reversible, none touch security
+:: v17.11 extra tweaks - all reversible, none touch security
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_FSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_HonorUserFSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_DXGIHonorFSEWindowsCompatible /f >nul 2>&1
@@ -727,7 +727,7 @@ exit /b
 :: ============================================================
 :FIXWIN
 cls
-set "TOTAL=5"
+set "TOTAL=6"
 set "STEP=0"
 echo.
 echo   FIX WINDOWS - repairs system files and finds why the PC restarts / crashes
@@ -768,12 +768,39 @@ if "!CR!"=="1" (
 ) else (
     if defined HIDDEN echo @@DO=No drive errors
 )
+call :STEP "Undoing old tweaks that can freeze or break the PC"
+schtasks /Delete /TN "Bu7maid RAM Keeper" /F >nul 2>&1
+schtasks /Delete /TN "Bu7maid RAM Boot" /F >nul 2>&1
+bcdedit /deletevalue useplatformclock >nul 2>&1
+bcdedit /deletevalue useplatformtick >nul 2>&1
+bcdedit /deletevalue tscsyncpolicy >nul 2>&1
+bcdedit /deletevalue disabledynamictick >nul 2>&1
+reg delete "HKLM\SYSTEM\CurrentControlSet\Services\kbdclass\Parameters" /v KeyboardDataQueueSize /f >nul 2>&1
+reg delete "HKLM\SYSTEM\CurrentControlSet\Services\mouclass\Parameters" /v MouseDataQueueSize /f >nul 2>&1
+reg delete "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" /v GlobalTimerResolutionRequests /f >nul 2>&1
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" /v DisablePagingExecutive /t REG_DWORD /d 0 /f >nul 2>&1
+reg add "HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl" /v Win32PrioritySeparation /t REG_DWORD /d 2 /f >nul 2>&1
+reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" /v SystemResponsiveness /t REG_DWORD /d 20 /f >nul 2>&1
+set "MSIMODE=RESTORE"
+call :PSRUN MSI
+set "MSIMODE=USBFIX"
+call :PSRUN MSI
+netsh int tcp set global autotuninglevel=normal >nul 2>&1
+netsh int tcp set global rss=enabled >nul 2>&1
+netsh int tcp set global ecncapability=default >nul 2>&1
+netsh int tcp set global timestamps=default >nul 2>&1
+netsh int tcp set heuristics enabled >nul 2>&1
+netsh winsock reset >nul 2>&1
+ipconfig /flushdns >nul 2>&1
+if defined HIDDEN echo @@DO=RAM keeper removed, timer and priority settings back to Windows defaults
+if defined HIDDEN echo @@DO=Hardware interrupt tweaks undone, keyboard and mouse queues back to normal
+if defined HIDDEN echo @@DO=Network settings reset - fixes slow or broken internet after tweaks
 call :STEP "Repairing broken Windows parts"
 set "MSIMODE=USBFIX"
 call :PSRUN MSI
 reg delete "HKLM\SYSTEM\CurrentControlSet\Services\kbdclass\Parameters" /v KeyboardDataQueueSize /f >nul 2>&1
 reg delete "HKLM\SYSTEM\CurrentControlSet\Services\mouclass\Parameters" /v MouseDataQueueSize /f >nul 2>&1
-powershell -NoProfile -Command "$w=(& winmgmt /verifyrepository 2>&1) -join ' '; if($w -match 'inconsistent'){ & winmgmt /salvagerepository | Out-Null; exit 20 }; foreach($n in 'RpcSs','DcomLaunch','EventLog','PlugPlay','Power','Winmgmt','ProfSvc','Themes','Audiosrv','cbdhsvc','TabletInputService','TextInputManagementService','BFE','mpssvc','CryptSvc','TrustedInstaller'){ $k='HKLM:\SYSTEM\CurrentControlSet\Services\'+$n; if(Test-Path $k){ $v=(Get-ItemProperty $k -Name Start -EA SilentlyContinue).Start; if($v -eq 4){ Set-ItemProperty $k -Name Start -Value 3 -EA SilentlyContinue; $n | Out-File -Append '%BK%\fixsvc.txt' } } }; exit 0" >nul 2>&1
+powershell -NoProfile -Command "$w=(& winmgmt /verifyrepository 2>&1) -join ' '; if($w -match 'inconsistent'){ & winmgmt /salvagerepository | Out-Null; exit 20 }; foreach($n in 'RpcSs','DcomLaunch','EventLog','PlugPlay','Power','Winmgmt','ProfSvc','Themes','Audiosrv','cbdhsvc','TabletInputService','TextInputManagementService','BFE','mpssvc','CryptSvc','TrustedInstaller','Dhcp','Dnscache','NlaSvc','nsi','netprofm','LanmanWorkstation','AudioEndpointBuilder','hidserv','Schedule','StateRepository','Appinfo','ShellHWDetection','UserManager','gpsvc','DeviceInstall','DeviceAssociationService','TimeBrokerSvc','SENS','StorSvc','ClipSVC','Wcmsvc','BrokerInfrastructure','CoreMessaging','LSM','SystemEventsBroker','WlanSvc','lmhosts','FontCache','SysMain'){ $k='HKLM:\SYSTEM\CurrentControlSet\Services\'+$n; if(Test-Path $k){ $v=(Get-ItemProperty $k -Name Start -EA SilentlyContinue).Start; if($v -eq 4){ Set-ItemProperty $k -Name Start -Value 3 -EA SilentlyContinue; $n | Out-File -Append '%BK%\fixsvc.txt' } } }; exit 0" >nul 2>&1
 if "!errorlevel!"=="20" (if defined HIDDEN echo @@DO=Windows WMI database was broken - repaired)
 if exist "%BK%\fixsvc.txt" (if defined HIDDEN echo @@DO=Re-enabled Windows services that were disabled) & del /f /q "%BK%\fixsvc.txt" >nul 2>&1
 if defined HIDDEN echo @@DO=Restart the PC once so everything is applied

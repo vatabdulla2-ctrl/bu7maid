@@ -473,7 +473,7 @@ namespace Bu7maidZero
 
     class MainForm : Form
     {
-        internal const string Version = "v17.10";
+        internal const string Version = "v17.11";
         [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int a, ref int v, int s);
 
         string batPath;

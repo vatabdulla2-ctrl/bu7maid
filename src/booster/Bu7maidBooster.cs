@@ -56,7 +56,7 @@ namespace Bu7maidBooster
     class MainForm : Form
     {
         const int W = 980, H = 640;
-        const string Version = "v2.17";
+        const string Version = "v2.18";
 
         [DllImport("user32.dll")] static extern bool ReleaseCapture();
         [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
@@ -136,7 +136,8 @@ namespace Bu7maidBooster
             if (t.StartsWith("Checking the Windows image")) return new string[] { "Checks the Windows component store and repairs it if damaged" };
             if (t.StartsWith("Repairing system files")) return new string[] { "Scans every protected Windows file and restores damaged ones" };
             if (t.StartsWith("Scanning your system drive")) return new string[] { "Online check of the file system, no restart needed" };
-            if (t.StartsWith("Repairing broken Windows")) return new string[] { "Fixes the WMI database and re-enables core services" };
+            if (t.StartsWith("Undoing old tweaks")) return new string[] { "Removes the RAM keeper, forced timer and interrupt tweaks, small input queues", "Resets network settings that can slow or break the internet" };
+            if (t.StartsWith("Repairing broken Windows")) return new string[] { "Fixes the WMI database and turns on any core service that was left disabled" };
             if (t.StartsWith("Backup")) return new string[] { "Saved your original services + settings (for RESTORE)", "Created a Windows restore point (first run only)" };
             if (t.StartsWith("Health")) return new string[] { "Checks recent crashes, damaged system files, broken services and drivers", "Repairs what it can automatically", "If the PC is unstable: skips risky tweaks (MSI, timer, security-off, extra service cuts)" };
             if (t.StartsWith("Ultimate power")) return new string[] { "Ultimate Performance power plan ON", "CPU cores never park, full speed all the time", "Hibernation + power throttling OFF", "Laptop on battery keeps a saving mode" };
@@ -788,7 +789,7 @@ namespace Bu7maidBooster
         {
             PageHead(g, "Tools", "Quick fixers and cleaners. Each one shows its progress on the BOOST page.");
             string[] ti = { "FIX WINDOWS", "CLEAN DISK", "CLEAN RAM", "VIRUS SCAN" };
-            string[] ts = { "Repairs Windows files (DISM + SFC + drive check) and tells you why the PC restarts or crashes. Takes a few minutes.", "Deep clean: temp, caches, old Windows updates, dumps. Takes a few minutes (BOOST already does a fast one).", "Frees unused memory instantly. Nothing else is touched.", "Quick scan with the built-in Microsoft engine. Removes what it finds." };
+            string[] ts = { "Repairs Windows files, undoes old tweaks that freeze the PC or break keyboard/network, and finds why it crashes. A few minutes.", "Deep clean: temp, caches, old Windows updates, dumps. Takes a few minutes (BOOST already does a fast one).", "Frees unused memory instantly. Nothing else is touched.", "Quick scan with the built-in Microsoft engine. Removes what it finds." };
             string[] id = { "toolFix", "toolClean", "toolRam", "toolScan" };
             for (int i = 0; i < 4; i++)
             {
