@@ -472,7 +472,7 @@ namespace Bu7maidZero
 
     class MainForm : Form
     {
-        internal const string Version = "v17.19";
+        internal const string Version = "v17.20";
         [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int a, ref int v, int s);
 
         string batPath;
@@ -755,7 +755,7 @@ namespace Bu7maidZero
                 { long? smv = RD(LM + @"SYSTEM\CurrentControlSet\Services\SysMain", "Start"); bool smo = smv.HasValue && smv.Value == 4; L.Add(new SItem("SysMain OFF", smo ? 1 : 0, smo ? "DONE" : "Start=" + (smv.HasValue ? smv.Value.ToString() : "?"))); }
                 L.Add(Chk("Delivery Optimization OFF", Is(LM + @"SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization", "DODownloadMode", 0)));
                 L.Add(Chk("Power throttling OFF", Is(LM + @"SYSTEM\CurrentControlSet\Control\Power\PowerThrottling", "PowerThrottlingOff", 1)));
-                L.Add(Chk("Search indexing OFF", Is(LM + @"SYSTEM\CurrentControlSet\Services\WSearch", "Start", 4)));
+                L.Add(Chk("Windows Search kept ON (Start menu works)", !Is(LM + @"SYSTEM\CurrentControlSet\Services\WSearch", "Start", 4)));
                 L.Add(Chk("Network usage driver (NDU) OFF", Is(LM + @"SYSTEM\CurrentControlSet\Services\Ndu", "Start", 4)));
                 L.Add(Chk("Background apps OFF", Is(CU + @"Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications", "GlobalUserDisabled", 1)));
                 L.Add(new SItem("Copilot removed", Is(LM + @"SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot", "TurnOffWindowsCopilot", 1) ? 1 : 0, "GONE"));

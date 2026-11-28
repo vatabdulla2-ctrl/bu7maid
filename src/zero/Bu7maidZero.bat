@@ -1,10 +1,10 @@
 @echo off
 :: ============================================================
-::   BU 7MAID ZERO v17.19  -  One-Click Max FPS / Low Delay
+::   BU 7MAID ZERO v17.20  -  One-Click Max FPS / Low Delay
 ::   Progress bar + auto GPU detect + auto restart + full RESTORE
 :: ============================================================
 setlocal EnableExtensions EnableDelayedExpansion
-title BU 7MAID ZERO v17.19
+title BU 7MAID ZERO v17.20
 color 0A
 set "HIDDEN="
 if /i "%~2"=="HIDDEN" set "HIDDEN=1"
@@ -67,7 +67,7 @@ cls
 for /f %%P in ('powershell -NoProfile -Command "(Get-Process).Count"') do set "PROC=%%P"
 echo.
 echo   +===================================================================+
-echo   ^|                  B U   7 M A I D    Z E R O    v17.19               ^|
+echo   ^|                  B U   7 M A I D    Z E R O    v17.20               ^|
 echo   ^|            more FPS  -  less delay  -  fewer processes            ^|
 echo   +===================================================================+
 echo     CPU  !CPUNAME!
@@ -160,6 +160,12 @@ if exist "%BK%\health.txt" (
     )
 )
 if "!SAFE!"=="1" set "SEC=ON"
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Search" /v DisableWebSearch /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Search" /v AllowCloudSearch /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer" /v DisableSearchBoxSuggestions /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy" /v LetAppsRunInBackground /f >nul 2>&1
+sc config WSearch start= delayed-auto >nul 2>&1
+sc start WSearch >nul 2>&1
 set "MSIMODE=USBFIX"
 call :PSRUN MSI
 reg delete "HKLM\SYSTEM\CurrentControlSet\Services\kbdclass\Parameters" /v KeyboardDataQueueSize /f >nul 2>&1
@@ -196,7 +202,7 @@ call :STEP "Merging svchost (big process drop)"
 powershell -NoProfile -Command "$kb=[int]((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1KB)+1024000; Set-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control' -Name SvcHostSplitThresholdInKB -Value $kb -Type DWord" >nul 2>&1
 
 call :STEP "Disabling useless services"
-for %%S in (DiagTrack dmwappushservice SysMain WSearch MapsBroker RetailDemo Fax WerSvc lfsvc RemoteRegistry TrkWks WMPNetworkSvc PcaSvc DPS WdiServiceHost WdiSystemHost diagsvc wercplsupport SEMgrSvc PhoneSvc WpcMonSvc wisvc icssvc SharedAccess AJRouter ALG CscService) do (
+for %%S in (DiagTrack dmwappushservice SysMain MapsBroker RetailDemo Fax WerSvc lfsvc RemoteRegistry TrkWks WMPNetworkSvc PcaSvc DPS WdiServiceHost WdiSystemHost diagsvc wercplsupport SEMgrSvc PhoneSvc WpcMonSvc wisvc icssvc SharedAccess AJRouter ALG CscService) do (
     start "" /b sc stop %%S >nul 2>&1
     sc config %%S start= disabled >nul 2>&1
 )
@@ -243,12 +249,10 @@ reg add "HKLM\SOFTWARE\Policies\Microsoft\MicrosoftEdge\Main" /v AllowPrelaunch 
 reg add "HKLM\SOFTWARE\Policies\Microsoft\MicrosoftEdge\TabPreloader" /v AllowTabPreloading /t REG_DWORD /d 0 /f >nul 2>&1
 reg add "HKLM\SOFTWARE\Microsoft\Windows\Windows Error Reporting" /v Disabled /t REG_DWORD /d 1 /f >nul 2>&1
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\StorageSense" /v AllowStorageSenseGlobal /t REG_DWORD /d 0 /f >nul 2>&1
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Search" /v AllowCloudSearch /t REG_DWORD /d 0 /f >nul 2>&1
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v TaskbarMn /t REG_DWORD /d 0 /f >nul 2>&1
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v TaskbarDa /t REG_DWORD /d 0 /f >nul 2>&1
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Search" /v BingSearchEnabled /t REG_DWORD /d 0 /f >nul 2>&1
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Search" /v CortanaConsent /t REG_DWORD /d 0 /f >nul 2>&1
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer" /v DisableSearchBoxSuggestions /t REG_DWORD /d 1 /f >nul 2>&1
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v DisableAIDataAnalysis /t REG_DWORD /d 1 /f >nul 2>&1
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v AllowRecallEnablement /t REG_DWORD /d 0 /f >nul 2>&1
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarDeveloperSettings" /v TaskbarEndTask /t REG_DWORD /d 1 /f >nul 2>&1
@@ -259,7 +263,7 @@ reg add "HKLM\SYSTEM\CurrentControlSet\Control\WMI\Autologger\SQMLogger" /v Star
 call :TASKS /Disable
 
 call :STEP "Removing bloat apps (Xbox / Store / Photos / Calc kept)"
-powershell -NoProfile -Command "$l='Clipchamp.Clipchamp','Microsoft.BingNews','Microsoft.BingWeather','Microsoft.BingSearch','Microsoft.GetHelp','Microsoft.Getstarted','Microsoft.MicrosoftSolitaireCollection','Microsoft.People','Microsoft.Todos','Microsoft.WindowsFeedbackHub','Microsoft.WindowsMaps','Microsoft.MicrosoftOfficeHub','Microsoft.SkypeApp','Microsoft.ZuneVideo','Microsoft.YourPhone','Microsoft.PowerAutomateDesktop','MicrosoftCorporationII.QuickAssist','Microsoft.549981C3F5F10','MicrosoftTeams','MSTeams','Microsoft.Windows.DevHome','Microsoft.OutlookForWindows','Microsoft.Copilot','Microsoft.WindowsAlarms','Microsoft.MixedReality.Portal','Microsoft.3DBuilder','Microsoft.Microsoft3DViewer','MicrosoftWindows.Client.WebExperience','Microsoft.Windows.Ai.Copilot.Provider','Microsoft.BingTranslator','Microsoft.News','Microsoft.WindowsSoundRecorder','microsoft.windowscommunicationsapps','Microsoft.Office.OneNote','Microsoft.MSPaint','Microsoft.Wallet','Microsoft.Messaging','Microsoft.OneConnect','Microsoft.Print3D','Microsoft.MicrosoftJournal','Microsoft.Windows.Teams','Microsoft.Advertising.Xaml','Microsoft.MinecraftEducationEdition','Microsoft.WindowsReadingList','Microsoft.BingFinance','Microsoft.BingSports','Microsoft.BingFoodAndDrink','Microsoft.BingHealthAndFitness','Microsoft.BingTravel','Microsoft.Copilot','Microsoft.Windows.Ai.Copilot.Provider','Microsoft.MicrosoftOfficeHub','MicrosoftWindows.Client.CoPilot'; foreach($a in $l){Get-AppxPackage -AllUsers -Name $a -EA SilentlyContinue | Remove-AppxPackage -AllUsers -EA SilentlyContinue; Get-AppxProvisionedPackage -Online -EA SilentlyContinue | ?{$_.DisplayName -eq $a} | Remove-AppxProvisionedPackage -Online -EA SilentlyContinue}" >nul 2>&1
+powershell -NoProfile -Command "$l='Clipchamp.Clipchamp','Microsoft.BingNews','Microsoft.BingWeather','Microsoft.GetHelp','Microsoft.Getstarted','Microsoft.MicrosoftSolitaireCollection','Microsoft.People','Microsoft.Todos','Microsoft.WindowsFeedbackHub','Microsoft.WindowsMaps','Microsoft.MicrosoftOfficeHub','Microsoft.SkypeApp','Microsoft.ZuneVideo','Microsoft.YourPhone','Microsoft.PowerAutomateDesktop','MicrosoftCorporationII.QuickAssist','Microsoft.549981C3F5F10','MicrosoftTeams','MSTeams','Microsoft.Windows.DevHome','Microsoft.OutlookForWindows','Microsoft.Copilot','Microsoft.WindowsAlarms','Microsoft.MixedReality.Portal','Microsoft.3DBuilder','Microsoft.Microsoft3DViewer','MicrosoftWindows.Client.WebExperience','Microsoft.Windows.Ai.Copilot.Provider','Microsoft.BingTranslator','Microsoft.News','Microsoft.WindowsSoundRecorder','microsoft.windowscommunicationsapps','Microsoft.Office.OneNote','Microsoft.MSPaint','Microsoft.Wallet','Microsoft.Messaging','Microsoft.OneConnect','Microsoft.Print3D','Microsoft.MicrosoftJournal','Microsoft.Windows.Teams','Microsoft.Advertising.Xaml','Microsoft.MinecraftEducationEdition','Microsoft.WindowsReadingList','Microsoft.BingFinance','Microsoft.BingSports','Microsoft.BingFoodAndDrink','Microsoft.BingHealthAndFitness','Microsoft.BingTravel','Microsoft.Copilot','Microsoft.Windows.Ai.Copilot.Provider','Microsoft.MicrosoftOfficeHub','MicrosoftWindows.Client.CoPilot'; foreach($a in $l){Get-AppxPackage -AllUsers -Name $a -EA SilentlyContinue | Remove-AppxPackage -AllUsers -EA SilentlyContinue; Get-AppxProvisionedPackage -Online -EA SilentlyContinue | ?{$_.DisplayName -eq $a} | Remove-AppxProvisionedPackage -Online -EA SilentlyContinue}" >nul 2>&1
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot" /v TurnOffWindowsCopilot /t REG_DWORD /d 1 /f >nul 2>&1
 reg add "HKCU\Software\Policies\Microsoft\Windows\WindowsCopilot" /v TurnOffWindowsCopilot /t REG_DWORD /d 1 /f >nul 2>&1
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsAI" /v DisableAIDataAnalysis /t REG_DWORD /d 1 /f >nul 2>&1
@@ -554,7 +558,6 @@ reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v St
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v ShowSyncProviderNotifications /t REG_DWORD /d 0 /f >nul 2>&1
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v ShowTaskViewButton /t REG_DWORD /d 0 /f >nul 2>&1
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\System" /v EnableCdp /t REG_DWORD /d 0 /f >nul 2>&1
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Search" /v DisableWebSearch /t REG_DWORD /d 1 /f >nul 2>&1
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\Personalization" /v NoLockScreenCamera /t REG_DWORD /d 1 /f >nul 2>&1
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\GameDVR" /v AllowGameDVR /t REG_DWORD /d 0 /f >nul 2>&1
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\SettingSync" /v DisableSettingSync /t REG_DWORD /d 2 /f >nul 2>&1
@@ -577,7 +580,7 @@ if "%SEC%"=="OFF" (
 reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" /v SecurityHealth /f >nul 2>&1
 taskkill /f /im SecurityHealthSystray.exe >nul 2>&1
 reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games" /v "Latency Sensitive" /t REG_SZ /d True /f >nul 2>&1
-:: v17.19 extra tweaks - all reversible, none touch security
+:: v17.20 extra tweaks - all reversible, none touch security
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_FSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_HonorUserFSEBehaviorMode /f >nul 2>&1
 reg delete "HKCU\System\GameConfigStore" /v GameDVR_DXGIHonorFSEWindowsCompatible /f >nul 2>&1
@@ -603,7 +606,6 @@ for %%S in (AppReadiness FrameServer FrameServerMonitor GraphicsPerfSvc CscServi
     sc config %%S start= disabled >nul 2>&1
 )
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\System" /v EnableActivityFeed /t REG_DWORD /d 0 /f >nul 2>&1
-reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy" /v LetAppsRunInBackground /t REG_DWORD /d 2 /f >nul 2>&1
 reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows\CloudContent" /v DisableWindowsConsumerFeatures /t REG_DWORD /d 1 /f >nul 2>&1
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v ShowSyncProviderNotifications /t REG_DWORD /d 0 /f >nul 2>&1
 reg add "HKCU\Control Panel\Desktop" /v MenuShowDelay /t REG_SZ /d 0 /f >nul 2>&1
@@ -830,6 +832,16 @@ if "!VR!"=="0" (if defined HIDDEN echo @@DO=No viruses found)
 if "!VR!"=="2" (if defined HIDDEN echo @@DO=Threats were found and removed - run VIRUS SCAN in Tools for a deeper check)
 if "!VR!"=="99" (if defined HIDDEN echo @@DO=Windows antivirus engine not available - scan skipped)
 call :STEP "Repairing broken Windows parts"
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Search" /v DisableWebSearch /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Search" /v AllowCloudSearch /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer" /v DisableSearchBoxSuggestions /f >nul 2>&1
+reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy" /v LetAppsRunInBackground /f >nul 2>&1
+sc config WSearch start= delayed-auto >nul 2>&1
+sc start WSearch >nul 2>&1
+powershell -NoProfile -Command "foreach($n in 'MicrosoftWindows.Client.CBS','Microsoft.Windows.StartMenuExperienceHost','Microsoft.Windows.ShellExperienceHost','MicrosoftWindows.Client.Core','Microsoft.Windows.Search'){ Get-AppxPackage -AllUsers $n -EA SilentlyContinue | ForEach-Object { if($_.InstallLocation){ Add-AppxPackage -DisableDevelopmentMode -Register ($_.InstallLocation + '\AppXManifest.xml') -EA SilentlyContinue } } }" >nul 2>&1
+taskkill /f /im SearchHost.exe >nul 2>&1
+taskkill /f /im SearchApp.exe >nul 2>&1
+if defined HIDDEN echo @@DO=Windows Search and Start menu repaired
 set "MSIMODE=USBFIX"
 call :PSRUN MSI
 reg delete "HKLM\SYSTEM\CurrentControlSet\Services\kbdclass\Parameters" /v KeyboardDataQueueSize /f >nul 2>&1
